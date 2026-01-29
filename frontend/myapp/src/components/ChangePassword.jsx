@@ -1,35 +1,56 @@
 import { useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
+import "./ChangePassword.css";
 
 export default function ChangePassword() {
-  const [pwd, setPwd] = useState("");
-  const [cpwd, setCpwd] = useState("");
+  const [password, setPassword] = useState("");
+  const [confirm, setConfirm] = useState("");
+
   const { state } = useLocation();
   const navigate = useNavigate();
 
-  const submit = async () => {
-    if (pwd !== cpwd) return alert("Passwords mismatch");
+  const submitPassword = async () => {
+    if (password !== confirm) {
+      alert("Passwords do not match");
+      return;
+    }
 
     const res = await fetch("http://127.0.0.1:8000/api/change-password/", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ empid: state.empid, password: pwd }),
+      body: JSON.stringify({ empid: state.empid, password }),
     });
 
     const data = await res.json();
 
     if (data.status) {
-      alert("Password Updated");
+      alert("Password changed successfully");
       navigate("/");
-    } else alert(data.message);
+    } else {
+      alert(data.message);
+    }
   };
 
   return (
-    <>
-      <h2>Change Password</h2>
-      <input type="password" onChange={(e)=>setPwd(e.target.value)} placeholder="New Password"/>
-      <input type="password" onChange={(e)=>setCpwd(e.target.value)} placeholder="Confirm Password"/>
-      <button onClick={submit}>Save</button>
-    </>
+    <div className="cp-container">
+      <div className="cp-card">
+        <h2>Change Password</h2>
+        <p>Create a new secure password</p>
+
+        <input
+          type="password"
+          placeholder="New Password"
+          onChange={(e) => setPassword(e.target.value)}
+        />
+
+        <input
+          type="password"
+          placeholder="Confirm Password"
+          onChange={(e) => setConfirm(e.target.value)}
+        />
+
+        <button onClick={submitPassword}>Update Password</button>
+      </div>
+    </div>
   );
 }

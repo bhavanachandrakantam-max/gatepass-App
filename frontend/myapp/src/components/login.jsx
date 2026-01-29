@@ -46,7 +46,7 @@ const Login = () => {
 
       // ✅ OTP FLOW
       if (data.status === "otp") {
-        navigate("/otp", { state: { empid: employeeId } });
+        navigate("/otp", { state: { empid: data.empid, email: data.email } });
       } 
       // ✅ NORMAL LOGIN FLOW
       else if (data.status) {
@@ -78,7 +78,7 @@ const Login = () => {
 
           <form onSubmit={handleSubmit}>
             <h3>Employee ID</h3>
-
+            <br></br>
             <div className="otp-boxes">
               {empId.map((digit, index) => (
                 <input

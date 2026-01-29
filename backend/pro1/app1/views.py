@@ -1,7 +1,8 @@
 import random
-from django.core.mail import send_mail
+from django.core.mail import EmailMultiAlternatives
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
+from django.conf import settings
 from .models import Login
 
 
@@ -22,18 +23,47 @@ def login_view(request):
             user.otp = otp
             user.save()
 
-            send_mail(
-                subject="GatePass OTP",
-                message=f"Your OTP is {otp}",
-                from_email="noreply@svrec.ac.in",
-                recipient_list=[user.email],
-                fail_silently=False,
+            subject = "Gate Pass OTP Verification"
+
+            html_content = f"""
+            <html>
+              <body style="font-family: Arial; background:#f4f6fb; padding:20px;">
+                <div style="max-width:500px;margin:auto;background:white;border-radius:10px;padding:25px;">
+                  <h2 style="color:#2b5cff;text-align:center;">Gate Pass App</h2>
+                  <p>Hello <b>{user.empname}</b>,</p>
+                  <p>Your One-Time Password (OTP) is:</p>
+
+                  <h1 style="text-align:center;letter-spacing:4px;color:#000;">
+                    {otp}
+                  </h1>
+
+                  <p>This OTP is valid for 10 minutes.</p>
+                  <p>If you did not request this, please ignore.</p>
+
+                  <hr>
+                  <p style="font-size:12px;color:gray;text-align:center;">
+                    SVR Engineering College Gate Pass System
+                  </p>
+                </div>
+              </body>
+            </html>
+            """
+
+            msg = EmailMultiAlternatives(
+                subject,
+                "",
+                settings.EMAIL_HOST_USER,
+                [user.email],
             )
+
+            msg.attach_alternative(html_content, "text/html")
+            msg.send()
 
             return Response({
                 "status": "otp",
                 "message": "OTP sent to your email",
-                "empid": empid
+                "empid": empid,
+                "email": user.email
             })
 
         # ❌ WRONG PASSWORD
@@ -52,6 +82,7 @@ def login_view(request):
             "status": False,
             "message": "Employee not found. Contact clerk."
         })
+
 
 
 @api_view(['POST'])
