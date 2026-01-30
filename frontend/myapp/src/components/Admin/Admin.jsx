@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react';
 import '../Admin/Admin.css';
 
 const Dashboard = () => {
-  const [user, setUser] = useState({ name: 'Staff', role: 'Staff' });
+  const [user, setUser] = useState({ name: 'Clerk', role: 'Clerk' });
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [stats, setStats] = useState({
     monthlyConsumption: 1,
@@ -62,7 +62,10 @@ const Dashboard = () => {
   }, []);
 
   const handleLogout = () => {
-    alert('Logging out...');
+     navigate('/');
+     setActiveTab('Login');
+     setSidebarOpen(false);
+    
   };
 
   const toggleSidebar = () => {
@@ -77,10 +80,10 @@ const Dashboard = () => {
   const navigate = useNavigate();
 
    const handleToRequestForm = () => {
-    navigate('/request');
-    setActiveTab(tab);
-    setSidebarOpen(false); 
-  };
+  navigate('/request-form');
+  setActiveTab('request-form');
+  setSidebarOpen(false);
+};
 
   const markNotificationAsRead = (id) => {
     setNotifications(notifications.map(notif => 
@@ -93,8 +96,10 @@ const Dashboard = () => {
   };
 
   const handleCreatePass = () => {
-    alert('Opening Pass Creation Form...');
-  };
+  navigate('/request-form');
+  setActiveTab('request-form');
+};
+
 
   const handleViewAnalytics = () => {
     alert('Opening Analytics Dashboard...');
@@ -165,6 +170,33 @@ const Dashboard = () => {
             <span className="nav-icon">📈</span>
             Reports
           </button>
+
+           {/* ✅ NEW */}
+  <button 
+    className={`nav-item ${activeTab === 'change-password' ? 'active' : ''}`}
+    onClick={() => {
+      setActiveTab('change-password');
+      navigate('/change-password');
+      setSidebarOpen(false);
+    }}
+  >
+    <span className="nav-icon">🔑</span>
+    Change Password
+  </button>
+
+  {/* ✅ NEW */}
+  <button 
+    className={`nav-item ${activeTab === 'create-user' ? 'active' : ''}`}
+    onClick={() => {
+      setActiveTab('create-user');
+      navigate('/create-user');
+      setSidebarOpen(false);
+    }}
+  >
+    <span className="nav-icon">👤</span>
+    Create User
+  </button>
+
           {/*<button 
             className={`nav-item ${activeTab === 'notifications' ? 'active' : ''}`}
             onClick={() => handleNavClick('notifications')}

@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react';
 import '../Principal/Principal.css';
 
 const Dashboard = () => {
-  const [user, setUser] = useState({ name: 'Principal', role: 'Principal' });
+  const [user, setUser] = useState({ name: 'Clerk', role: 'Clerk' });
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [stats, setStats] = useState({
     monthlyConsumption: 1,
@@ -62,7 +62,9 @@ const Dashboard = () => {
   }, []);
 
   const handleLogout = () => {
-    alert('Logging out...');
+     navigate('/');
+     setActiveTab('Login');
+     setSidebarOpen(false);
   };
 
   const toggleSidebar = () => {
@@ -77,10 +79,10 @@ const Dashboard = () => {
   const navigate = useNavigate();
 
    const handleToRequestForm = () => {
-    navigate('/request');
-    setActiveTab(tab);
-    setSidebarOpen(false); 
-  };
+  navigate('/request-form');
+  setActiveTab('request-form');
+  setSidebarOpen(false);
+};
 
   const markNotificationAsRead = (id) => {
     setNotifications(notifications.map(notif => 
@@ -93,8 +95,10 @@ const Dashboard = () => {
   };
 
   const handleCreatePass = () => {
-    alert('Opening Pass Creation Form...');
-  };
+  navigate('/request-form');
+  setActiveTab('request-form');
+};
+
 
   const handleViewAnalytics = () => {
     alert('Opening Analytics Dashboard...');
