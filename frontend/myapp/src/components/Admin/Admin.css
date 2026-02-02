@@ -989,6 +989,7 @@ html, body {
   .user-info {
     padding: 15px;
     margin-bottom: 25px;
+    background-color: black;
   }
   
   .user-avatar {

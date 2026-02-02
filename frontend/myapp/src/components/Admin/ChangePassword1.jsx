@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import "./ChangePassword1.css";
 
@@ -13,14 +13,18 @@ export default function ChangePassword1() {
   const { state } = useLocation();
   const navigate = useNavigate();
 
-  // Real-time validation states
+  // Use refs for performance (no re-renders)
+  const previousPasswordRef = useRef("");
+  const empidRef = useRef(state?.empid || "");
+  const abortControllerRef = useRef(null);
+
+  // Simple validation states
   const [validations, setValidations] = useState({
     length: false,
     notUserId: false,
-    notUserName: false,
+    notPrevious: true,
     hasLetters: false,
     hasNumbers: false,
-    hasSymbols: false
   });
 
   const [passwordStrength, setPasswordStrength] = useState({
@@ -30,399 +34,388 @@ export default function ChangePassword1() {
 
   const [passwordsMatch, setPasswordsMatch] = useState(false);
 
+  // Fast fetch previous password on mount
   useEffect(() => {
-    // Check if user came from OTP verification
     if (!state?.empid) {
-      alert("Session expired. Please start the password change process again.");
       navigate("/admin-dashboard");
       return;
     }
     
-    console.log("ChangePassword1 received state:", state);
+    empidRef.current = state.empid;
+    
+    // Silent fetch - don't block UI
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 2000);
+    
+    fetch("http://127.0.0.1:8000/api/get-previous-password/", {
+      method: "POST",
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ empid: state.empid }),
+      signal: controller.signal
+    })
+      .then(r => r.json())
+      .then(data => {
+        if (data.status) previousPasswordRef.current = data.previous_password || "";
+      })
+      .catch(() => {}) // Silent fail - not critical
+      .finally(() => clearTimeout(timeoutId));
   }, [state, navigate]);
 
-  // Real-time password validation
+  // Instant validation on password change
   useEffect(() => {
-    const validatePassword = () => {
-      if (!newPassword) {
-        setValidations({
-          length: false,
-          notUserId: false,
-          notUserName: false,
-          hasLetters: false,
-          hasNumbers: false,
-          hasSymbols: false
-        });
-        setPasswordStrength({ level: "weak", score: 0 });
-        return;
-      }
+    if (!newPassword) {
+      setValidations({
+        length: false,
+        notUserId: false,
+        notPrevious: true,
+        hasLetters: false,
+        hasNumbers: false,
+      });
+      setPasswordStrength({ level: "weak", score: 0 });
+      return;
+    }
 
-      // Validation rules
-      const validationsObj = {
-        length: newPassword.length >= 6,
-        notUserId: newPassword !== state.empid,
-        notUserName: newPassword.toLowerCase() !== (state.empname || "").toLowerCase(),
-        hasLetters: /[a-zA-Z]/.test(newPassword),
-        hasNumbers: /[0-9]/.test(newPassword),
-        hasSymbols: /[^a-zA-Z0-9]/.test(newPassword)
-      };
-
-      setValidations(validationsObj);
-
-      // Calculate password strength
-      let score = 0;
-      if (validationsObj.length) score += 1;
-      if (validationsObj.hasLetters) score += 1;
-      if (validationsObj.hasNumbers) score += 1;
-      if (validationsObj.hasSymbols) score += 1;
-      if (newPassword.length >= 8) score += 1;
-      if (newPassword.length >= 12) score += 1;
-
-      let level = "weak";
-      if (score >= 5) level = "strong";
-      else if (score >= 3) level = "good";
-      else if (score >= 2) level = "fair";
-
-      setPasswordStrength({ level, score });
+    const isPrevious = newPassword === previousPasswordRef.current;
+    
+    const validationsObj = {
+      length: newPassword.length >= 6,
+      notUserId: newPassword !== empidRef.current,
+      notPrevious: !isPrevious,
+      hasLetters: /[a-zA-Z]/.test(newPassword),
+      hasNumbers: /\d/.test(newPassword),
     };
 
-    validatePassword();
-  }, [newPassword, state.empid, state.empname]);
+    setValidations(validationsObj);
 
-  // Check if passwords match
+    // Fast strength calculation
+    let score = 0;
+    if (validationsObj.length) score++;
+    if (validationsObj.hasLetters) score++;
+    if (validationsObj.hasNumbers) score++;
+    if (newPassword.length >= 8) score++;
+    if (newPassword.length >= 12) score++;
+    if (validationsObj.notPrevious) score++;
+
+    let level = "weak";
+    if (score >= 5) level = "strong";
+    else if (score >= 4) level = "good";
+    else if (score >= 2) level = "fair";
+
+    setPasswordStrength({ level, score });
+  }, [newPassword]);
+
+  // Instant match check
   useEffect(() => {
-    if (newPassword && confirmPassword) {
-      setPasswordsMatch(newPassword === confirmPassword);
-    } else {
-      setPasswordsMatch(false);
-    }
+    setPasswordsMatch(newPassword === confirmPassword);
   }, [newPassword, confirmPassword]);
 
-  // Validate all requirements
+  // Fast requirement check
   const allRequirementsMet = useMemo(() => {
     return (
       validations.length &&
       validations.notUserId &&
-      validations.notUserName &&
-      (validations.hasLetters || validations.hasNumbers || validations.hasSymbols)
+      validations.notPrevious &&
+      (validations.hasLetters || validations.hasNumbers) &&
+      passwordsMatch
     );
-  }, [validations]);
+  }, [validations, passwordsMatch]);
 
-  // Fast password change with minimal validation
+  // Lightning-fast submit
   const handleSubmit = async (e) => {
     e.preventDefault();
     
-    // Reset messages
+    // Clear messages instantly
     setError("");
     setSuccess("");
     
-    // Quick validation
+    // Ultra-fast validation
     if (!newPassword || !confirmPassword) {
       setError("Please fill in all fields");
       return;
     }
     
-    if (newPassword.length < 6) {
-      setError("Password must be at least 6 characters long");
-      return;
-    }
-    
-    if (!passwordsMatch) {
-      setError("Passwords do not match");
-      return;
-    }
-    
-    if (!validations.notUserId) {
-      setError("Password cannot be same as your Employee ID");
-      return;
-    }
-    
-    if (!validations.notUserName) {
-      setError("Password cannot be same as your name");
-      return;
-    }
-    
-    // Ensure at least letters or numbers
-    if (!validations.hasLetters && !validations.hasNumbers) {
-      setError("Password must contain at least letters or numbers");
+    if (!allRequirementsMet) {
+      setError("Please check all requirements");
       return;
     }
     
     setLoading(true);
     
+    // Cancel any previous request
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+    }
+    
+    const controller = new AbortController();
+    abortControllerRef.current = controller;
+    
     try {
-      console.log("Updating password for empid:", state.empid);
+      const timeoutId = setTimeout(() => controller.abort(), 2000);
       
-      // Use FormData for faster processing
-      const formData = new FormData();
-      formData.append('empid', state.empid);
-      formData.append('new_password', newPassword);
-      formData.append('confirm_password', confirmPassword);
+      const startTime = performance.now();
       
       const response = await fetch("http://127.0.0.1:8000/api/update-password-from-dashboard/", {
         method: "POST",
-        body: formData,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          empid: empidRef.current,
+          new_password: newPassword,
+          confirm_password: confirmPassword,
+        }),
+        signal: controller.signal
       });
       
+      clearTimeout(timeoutId);
+      
+      const endTime = performance.now();
+      console.log(`⚡ Password update took ${Math.round(endTime - startTime)}ms`);
+      
       const data = await response.json();
-      console.log("Password update response:", data);
       
       if (data.status) {
-        setSuccess(data.message || "Password updated successfully!");
+        // Update cache
+        previousPasswordRef.current = newPassword;
         
-        // Clear form immediately
+        setSuccess("Password updated successfully!");
+        
+        // Clear form instantly
         setNewPassword("");
         setConfirmPassword("");
         
-        // Fast redirect - reduced from 2 seconds to 1 second
-        setTimeout(() => {
-          navigate("/admin-dashboard");
-        }, 1000);
+        // Ultra-fast redirect (200ms)
+        setTimeout(() => navigate("/admin-dashboard"), 200);
       } else {
-        setError(data.message || "Failed to update password");
+        setError(data.message || "Update failed");
       }
-    } catch (error) {
-      console.error("Password change error:", error);
-      setError("Network error. Please try again.");
+    } catch (err) {
+      if (err.name === 'AbortError') {
+        setError("Request timed out. Please try again.");
+      } else {
+        setError("Network error. Please check connection.");
+      }
     } finally {
       setLoading(false);
     }
   };
 
-  // Handle cancel
-  const handleCancel = useCallback(() => {
-    navigate("/admin-dashboard");
-  }, [navigate]);
-
-  // Toggle password visibility
-  const toggleNewPasswordVisibility = useCallback(() => {
-    setShowNewPassword(prev => !prev);
-  }, []);
-
-  const toggleConfirmPasswordVisibility = useCallback(() => {
-    setShowConfirmPassword(prev => !prev);
-  }, []);
+  // Fast handlers
+  const handleCancel = () => navigate("/admin-dashboard");
+  
+  const toggleNewPasswordVisibility = () => setShowNewPassword(p => !p);
+  const toggleConfirmPasswordVisibility = () => setShowConfirmPassword(p => !p);
+  
+  const handleNewPasswordChange = (e) => {
+    const value = e.target.value;
+    setNewPassword(value);
+    if (error || success) {
+      setError("");
+      setSuccess("");
+    }
+  };
+  
+  const handleConfirmPasswordChange = (e) => {
+    const value = e.target.value;
+    setConfirmPassword(value);
+    if (error || success) {
+      setError("");
+      setSuccess("");
+    }
+  };
 
   return (
     <div className="change-password-container">
       <div className="change-password-card">
-        <h2>
-          <span>🔐</span>
-          Change Password
-        </h2>
-        
-        {/* User Info */}
-        <div className="user-info">
-          <div className="user-details">
-            <div className="user-detail-item">
-              <span className="detail-label">Employee</span>
-              <span className="detail-value">{state?.empname || state?.username || "N/A"}</span>
-            </div>
-            <div className="user-detail-item">
-              <span className="detail-label">ID</span>
-              <span className="detail-value">{state?.empid || "N/A"}</span>
-            </div>
-            {state?.email && (
-              <div className="user-detail-item">
-                <span className="detail-label">Email</span>
-                <span className="detail-value">{state.email}</span>
-              </div>
-            )}
-            {state?.role && (
-              <div className="user-detail-item">
-                <span className="detail-label">Role</span>
-                <span className="detail-value">{state.role}</span>
-              </div>
-            )}
+        <div className="header-section">
+          <div className="icon-wrapper">
+            <span className="lock-icon">🔐</span>
           </div>
+          <h1>Change Password</h1>
+          <p className="subtitle">Secure your account with a new password</p>
         </div>
         
         {/* Error Message */}
         {error && (
-          <div className="error-message" style={{ animation: "shake 0.5s ease" }}>
-            <span>⚠️</span>
-            {error}
+          <div className="alert-message error">
+            <div className="alert-icon">⚠️</div>
+            <div className="alert-content">
+              <strong>Error</strong>
+              <p>{error}</p>
+            </div>
           </div>
         )}
         
         {/* Success Message */}
         {success && (
-          <div className="success-message">
-            <span>✅</span>
-            {success}
+          <div className="alert-message success">
+            <div className="alert-icon">✅</div>
+            <div className="alert-content">
+              <strong>Success</strong>
+              <p>{success}</p>
+            </div>
           </div>
         )}
         
         <form onSubmit={handleSubmit} className="password-form">
           {/* New Password */}
-          <div className="input-group">
-            <label htmlFor="newPassword" className="input-label">
+          <div className="form-group">
+            <label className="form-label">
               New Password
+              <span className="required">*</span>
             </label>
-            <div className="password-input-wrapper">
+            <div className="input-wrapper">
               <input
                 type={showNewPassword ? "text" : "password"}
-                id="newPassword"
                 value={newPassword}
-                onChange={(e) => {
-                  setNewPassword(e.target.value);
-                  setError("");
-                  setSuccess("");
-                }}
-                placeholder="Enter new password (min. 6 characters)"
+                onChange={handleNewPasswordChange}
+                placeholder="Enter new password"
                 disabled={loading || !!success}
                 required
-                className={`password-input ${validations.length && passwordsMatch ? 'valid' : newPassword ? 'invalid' : ''}`}
-                autoComplete="new-password"
+                className={`form-input ${
+                  newPassword && validations.length && validations.notPrevious ? 'valid' : 
+                  newPassword && !validations.notPrevious ? 'invalid' : ''
+                }`}
                 autoFocus
               />
               <button
                 type="button"
-                className="toggle-password"
+                className="password-toggle"
                 onClick={toggleNewPasswordVisibility}
                 disabled={loading || !!success}
                 aria-label={showNewPassword ? "Hide password" : "Show password"}
               >
-                {showNewPassword ? "👁️" : "👁️‍🗨️"}
+                <span className="eye-icon">
+                  {showNewPassword ? "👁️" : "👁️‍🗨️"}
+                </span>
               </button>
             </div>
-            <div className={`char-counter ${validations.length ? 'valid' : 'invalid'}`}>
-              {newPassword.length}/6 characters
-            </div>
-          </div>
-          
-          {/* Confirm Password */}
-          <div className="input-group">
-            <label htmlFor="confirmPassword" className="input-label">
-              Confirm Password
-            </label>
-            <div className="password-input-wrapper">
-              <input
-                type={showConfirmPassword ? "text" : "password"}
-                id="confirmPassword"
-                value={confirmPassword}
-                onChange={(e) => {
-                  setConfirmPassword(e.target.value);
-                  setError("");
-                  setSuccess("");
-                }}
-                placeholder="Re-enter new password"
-                disabled={loading || !!success}
-                required
-                className={`password-input ${passwordsMatch && confirmPassword ? 'valid' : confirmPassword ? 'invalid' : ''}`}
-                autoComplete="new-password"
-              />
-              <button
-                type="button"
-                className="toggle-password"
-                onClick={toggleConfirmPasswordVisibility}
-                disabled={loading || !!success}
-                aria-label={showConfirmPassword ? "Hide password" : "Show password"}
-              >
-                {showConfirmPassword ? "👁️" : "👁️‍🗨️"}
-              </button>
-            </div>
-            <div className={`match-indicator ${confirmPassword ? 'show' : ''} ${passwordsMatch ? 'matching' : 'not-matching'}`}>
-              {passwordsMatch ? (
-                <>
-                  <span>✓</span>
-                  Passwords match
-                </>
-              ) : (
-                <>
-                  <span>✗</span>
-                  Passwords don't match
-                </>
+            <div className="input-footer">
+              <span className={`char-count ${validations.length ? 'valid' : 'invalid'}`}>
+                {newPassword.length}/6 characters
+              </span>
+              {newPassword && !validations.notPrevious && (
+                <span className="warning-text">
+                  <span className="warning-icon">⚠️</span>
+                  This password has been used before
+                </span>
               )}
             </div>
           </div>
           
+          {/* Confirm Password */}
+          <div className="form-group">
+            <label className="form-label">
+              Confirm Password
+              <span className="required">*</span>
+            </label>
+            <div className="input-wrapper">
+              <input
+                type={showConfirmPassword ? "text" : "password"}
+                value={confirmPassword}
+                onChange={handleConfirmPasswordChange}
+                placeholder="Confirm your password"
+                disabled={loading || !!success}
+                required
+                className={`form-input ${
+                  passwordsMatch && confirmPassword ? 'valid' : 
+                  confirmPassword && !passwordsMatch ? 'invalid' : ''
+                }`}
+              />
+              <button
+                type="button"
+                className="password-toggle"
+                onClick={toggleConfirmPasswordVisibility}
+                disabled={loading || !!success}
+                aria-label={showConfirmPassword ? "Hide password" : "Show password"}
+              >
+                <span className="eye-icon">
+                  {showConfirmPassword ? "👁️" : "👁️‍🗨️"}
+                </span>
+              </button>
+            </div>
+            <div className="input-footer">
+              <span className={`match-status ${passwordsMatch ? 'valid' : 'invalid'}`}>
+                {passwordsMatch ? (
+                  <>
+                    <span className="status-icon">✓</span>
+                    Passwords match
+                  </>
+                ) : (
+                  <>
+                    <span className="status-icon">✗</span>
+                    Passwords don't match
+                  </>
+                )}
+              </span>
+            </div>
+          </div>
+          
           {/* Password Strength */}
-          {newPassword && (
-            <div className="strength-indicator">
-              <div className="strength-label">
-                <span>Password Strength</span>
-                <span className={`strength-value ${passwordStrength.level}`}>
+          {newPassword && validations.length && validations.notPrevious && (
+            <div className="strength-section">
+              <div className="strength-header">
+                <span className="strength-label">Password Strength</span>
+                <span className={`strength-badge ${passwordStrength.level}`}>
                   {passwordStrength.level.toUpperCase()}
                 </span>
               </div>
-              <div className="strength-bar">
-                <div className={`strength-fill ${passwordStrength.level}`} />
+              <div className="strength-meter">
+                <div className={`strength-fill ${passwordStrength.level}`} 
+                     style={{ width: passwordStrength.score * 15 + '%' }} />
               </div>
             </div>
           )}
           
-          {/* Password Requirements */}
-          <div className="requirements-grid">
-            <div className={`requirement-item ${validations.length ? 'valid' : 'invalid'}`}>
-              <div className={`requirement-icon ${validations.length ? 'valid' : 'invalid'}`}>
-                {validations.length ? '✓' : '✗'}
+          {/* Requirements */}
+          <div className="requirements-section">
+            <h3 className="requirements-title">Password Requirements</h3>
+            <div className="requirements-grid">
+              <div className={`requirement ${validations.length ? 'met' : 'unmet'}`}>
+                <div className="requirement-check">
+                  {validations.length ? '✓' : '✗'}
+                </div>
+                <span className="requirement-text">Minimum 6 characters</span>
               </div>
-              <div className={`requirement-text ${validations.length ? 'valid' : 'invalid'}`}>
-                Minimum 6 characters
+              
+              <div className={`requirement ${validations.notUserId ? 'met' : 'unmet'}`}>
+                <div className="requirement-check">
+                  {validations.notUserId ? '✓' : '✗'}
+                </div>
+                <span className="requirement-text">Different from Employee ID</span>
               </div>
-            </div>
-            
-            <div className={`requirement-item ${validations.notUserId ? 'valid' : 'invalid'}`}>
-              <div className={`requirement-icon ${validations.notUserId ? 'valid' : 'invalid'}`}>
-                {validations.notUserId ? '✓' : '✗'}
+              
+              <div className={`requirement ${validations.notPrevious ? 'met' : 'unmet'}`}>
+                <div className="requirement-check">
+                  {validations.notPrevious ? '✓' : '✗'}
+                </div>
+                <span className="requirement-text">Not a previous password</span>
               </div>
-              <div className={`requirement-text ${validations.notUserId ? 'valid' : 'invalid'}`}>
-                Cannot be same as Employee ID ({state.empid})
-              </div>
-            </div>
-            
-            <div className={`requirement-item ${validations.notUserName ? 'valid' : 'invalid'}`}>
-              <div className={`requirement-icon ${validations.notUserName ? 'valid' : 'invalid'}`}>
-                {validations.notUserName ? '✓' : '✗'}
-              </div>
-              <div className={`requirement-text ${validations.notUserName ? 'valid' : 'invalid'}`}>
-                Cannot be same as your name
-              </div>
-            </div>
-            
-            <div className={`requirement-item ${validations.hasLetters ? 'valid' : 'invalid'}`}>
-              <div className={`requirement-icon ${validations.hasLetters ? 'valid' : 'invalid'}`}>
-                {validations.hasLetters ? '✓' : '✗'}
-              </div>
-              <div className={`requirement-text ${validations.hasLetters ? 'valid' : 'invalid'}`}>
-                Contains letters
-              </div>
-            </div>
-            
-            <div className={`requirement-item ${validations.hasNumbers ? 'valid' : 'invalid'}`}>
-              <div className={`requirement-icon ${validations.hasNumbers ? 'valid' : 'invalid'}`}>
-                {validations.hasNumbers ? '✓' : '✗'}
-              </div>
-              <div className={`requirement-text ${validations.hasNumbers ? 'valid' : 'invalid'}`}>
-                Contains numbers
-              </div>
-            </div>
-            
-            <div className={`requirement-item ${validations.hasSymbols ? 'valid' : 'invalid'}`}>
-              <div className={`requirement-icon ${validations.hasSymbols ? 'valid' : 'invalid'}`}>
-                {validations.hasSymbols ? '✓' : '✗'}
-              </div>
-              <div className={`requirement-text ${validations.hasSymbols ? 'valid' : 'invalid'}`}>
-                Contains symbols
+              
+              <div className={`requirement ${(validations.hasLetters || validations.hasNumbers) ? 'met' : 'unmet'}`}>
+                <div className="requirement-check">
+                  {(validations.hasLetters || validations.hasNumbers) ? '✓' : '✗'}
+                </div>
+                <span className="requirement-text">Contains letters or numbers</span>
               </div>
             </div>
           </div>
           
-          {/* Buttons */}
-          <div className="button-group">
+          {/* Action Buttons */}
+          <div className="action-buttons">
             <button 
               type="submit" 
-              className="submit-btn"
-              disabled={loading || !!success || !allRequirementsMet || !passwordsMatch}
+              className="btn-primary"
+              disabled={loading || !!success || !allRequirementsMet}
             >
               {loading ? (
                 <>
                   <span className="spinner"></span>
-                  Updating...
+                  Updating Password...
                 </>
               ) : success ? (
-                "✓ Updated"
+                <>
+                  <span className="check-icon">✓</span>
+                  Password Updated
+                </>
               ) : (
                 "Change Password"
               )}
@@ -430,7 +423,7 @@ export default function ChangePassword1() {
             
             <button 
               type="button"
-              className="cancel-btn"
+              className="btn-secondary"
               onClick={handleCancel}
               disabled={loading}
             >
@@ -438,13 +431,14 @@ export default function ChangePassword1() {
             </button>
           </div>
           
-          {/* Success Redirect Message */}
+          {/* Success Redirect */}
           {success && (
-            <div className="success-redirect">
-              <p>
-                <span>✓</span>
-                Password changed successfully! Redirecting...
-              </p>
+            <div className="redirect-notice">
+              <div className="redirect-content">
+                <span className="redirect-icon">⏳</span>
+                <p>Redirecting to dashboard...</p>
+              </div>
+              <div className="redirect-progress"></div>
             </div>
           )}
         </form>

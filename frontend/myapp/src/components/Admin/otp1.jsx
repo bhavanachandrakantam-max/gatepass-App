@@ -1,35 +1,25 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import "./otp1.css";
 
 export default function Otp() {
   const [otp, setOtp] = useState(["", "", "", "", "", ""]);
   const [loading, setLoading] = useState(false);
-  const [sendingOtp, setSendingOtp] = useState(false);
-  const [timer, setTimer] = useState(60);
+  const [sendingOtp, setSendingOtp] = useState(true); // Start as true for immediate feedback
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const { state } = useLocation();
   const navigate = useNavigate();
   const inputRefs = useRef([]);
   const otpSentRef = useRef(false);
+  const abortControllerRef = useRef(null);
 
   // Initialize input refs
   useEffect(() => {
     inputRefs.current = inputRefs.current.slice(0, 6);
   }, []);
 
-  // Timer countdown
-  useEffect(() => {
-    if (timer > 0) {
-      const interval = setInterval(() => {
-        setTimer(prev => prev - 1);
-      }, 1000);
-      return () => clearInterval(interval);
-    }
-  }, [timer]);
-
-  // Send OTP on page load
+  // Send OTP immediately on page load
   useEffect(() => {
     if (!state?.empid) {
       navigate('/admin-dashboard');
@@ -41,23 +31,34 @@ export default function Otp() {
     }
   }, [state, navigate]);
 
-  // Format timer display
-  const formatTime = (seconds) => {
-    const mins = Math.floor(seconds / 60);
-    const secs = seconds % 60;
-    return `${mins}:${secs < 10 ? '0' : ''}${secs}`;
-  };
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+      }
+    };
+  }, []);
 
-  // Send OTP function
-  const sendOtpToUser = async () => {
+  // ULTRA-FAST OTP SEND FUNCTION
+  const sendOtpToUser = useCallback(async () => {
+    if (sendingOtp) return;
+    
     otpSentRef.current = true;
     setSendingOtp(true);
     setError("");
+    setSuccess("");
+
+    // Cancel any pending request
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+    }
+    
+    abortControllerRef.current = new AbortController();
 
     try {
-      console.log("Sending OTP to empid:", state.empid);
-      
-      const response = await fetch('http://127.0.0.1:8000/api/send-otp-for-password-change/', {
+      // Use ULTRA-FAST endpoint
+      const response = await fetch('http://127.0.0.1:8000/api/send-otp-ultrafast/', {
         method: 'POST',
         headers: { 
           'Content-Type': 'application/json',
@@ -65,37 +66,46 @@ export default function Otp() {
         },
         body: JSON.stringify({ 
           empid: state.empid
-        })
+        }),
+        signal: abortControllerRef.current.signal
       });
 
-      const responseText = await response.text();
-      console.log("OTP send response:", responseText);
-      
-      let data;
-      try {
-        data = JSON.parse(responseText);
-      } catch (e) {
-        console.error("Failed to parse JSON:", e);
-        throw new Error("Invalid response from server");
+      // Set loading to false immediately (email sends in background)
+      setSendingOtp(false);
+
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`);
       }
+
+      const data = await response.json();
       
       if (data.status) {
-        // Update state with email from response if available
+        // Immediate success - email is sending in background
+        setSuccess("✓ OTP sent! Check your email.");
+        
+        // Update state with email
         if (data.email && !state.email) {
-          // Update the state with email
           state.email = data.email;
         }
-        setTimer(60); // Reset timer
+        
+        // Auto-focus first input after short delay
+        setTimeout(() => {
+          if (inputRefs.current[0]) {
+            inputRefs.current[0].focus();
+          }
+        }, 300);
       } else {
-        setError(data.message || "Failed to send OTP. Please try again.");
+        setError(data.message || "Failed to send OTP");
       }
     } catch (error) {
+      if (error.name === 'AbortError') {
+        return; // Request was cancelled
+      }
       console.error('Error sending OTP:', error);
-      setError(`Error: ${error.message || 'Failed to send OTP. Please try again.'}`);
-    } finally {
+      setError("Network error. Please check connection.");
       setSendingOtp(false);
     }
-  };
+  }, [state?.empid, sendingOtp]);
 
   // Handle OTP input change
   const handleOtpChange = (value, index) => {
@@ -107,10 +117,13 @@ export default function Otp() {
 
     // Clear error when user starts typing
     setError("");
+    setSuccess("");
 
     // Auto-focus next input
     if (value && index < 5) {
-      inputRefs.current[index + 1].focus();
+      setTimeout(() => {
+        inputRefs.current[index + 1]?.focus();
+      }, 10);
     }
 
     // Auto-submit when last digit is entered
@@ -119,24 +132,26 @@ export default function Otp() {
       if (fullOtp.length === 6) {
         setTimeout(() => {
           submitOtp(fullOtp);
-        }, 100);
+        }, 150);
       }
     }
 
     // Auto-focus previous input on backspace
     if (!value && index > 0) {
-      inputRefs.current[index - 1].focus();
+      setTimeout(() => {
+        inputRefs.current[index - 1]?.focus();
+      }, 10);
     }
   };
 
   // Handle key down events
   const handleKeyDown = (e, index) => {
     if (e.key === "Backspace" && !otp[index] && index > 0) {
-      inputRefs.current[index - 1].focus();
+      inputRefs.current[index - 1]?.focus();
     } else if (e.key === "ArrowLeft" && index > 0) {
-      inputRefs.current[index - 1].focus();
+      inputRefs.current[index - 1]?.focus();
     } else if (e.key === "ArrowRight" && index < 5) {
-      inputRefs.current[index + 1].focus();
+      inputRefs.current[index + 1]?.focus();
     }
   };
 
@@ -150,32 +165,40 @@ export default function Otp() {
       setOtp(newOtp);
       
       // Focus the last input
-      inputRefs.current[5].focus();
+      setTimeout(() => {
+        inputRefs.current[5]?.focus();
+      }, 10);
       
       // Auto-submit after a short delay
       setTimeout(() => {
         submitOtp(pastedData);
-      }, 100);
+      }, 150);
     }
   };
 
-  // Submit OTP
+  // ULTRA-FAST OTP VERIFICATION
   const submitOtp = async (otpValue = otp.join("")) => {
     if (otpValue.length !== 6) {
       setError("Please enter a valid 6-digit OTP");
       return;
     }
 
+    if (loading) return;
+    
     setLoading(true);
     setError("");
     setSuccess("");
 
+    // Cancel any pending request
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+    }
+    
+    abortControllerRef.current = new AbortController();
+
     try {
-      console.log("Verifying OTP for empid:", state.empid);
-      
-      const endpoint = "http://127.0.0.1:8000/api/verify-otp-for-password-change/";
-      
-      const response = await fetch(endpoint, {
+      // Use ULTRA-FAST verification endpoint
+      const response = await fetch('http://127.0.0.1:8000/api/verify-otp-ultrafast/', {
         method: "POST",
         headers: { 
           "Content-Type": "application/json",
@@ -185,21 +208,17 @@ export default function Otp() {
           empid: state.empid, 
           otp: otpValue.trim() 
         }),
+        signal: abortControllerRef.current.signal
       });
 
-      const responseText = await response.text();
-      
-      let data;
-      try {
-        data = JSON.parse(responseText);
-      } catch (e) {
-        console.error("Failed to parse JSON:", e);
-        setError("Server returned invalid response. Please try again.");
-        return;
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`);
       }
 
+      const data = await response.json();
+
       if (data.status) {
-        setSuccess(data.message || "OTP verified successfully!");
+        setSuccess("✓ OTP Verified! Redirecting...");
         
         // Navigate to change password page after successful verification
         setTimeout(() => {
@@ -214,14 +233,17 @@ export default function Otp() {
               otpVerified: true
             }
           });
-        }, 1000);
+        }, 800);
       } else {
         setError(data.message || "Invalid OTP. Please try again.");
         // Clear OTP and focus first input on error
         setOtp(["", "", "", "", "", ""]);
-        inputRefs.current[0].focus();
+        setTimeout(() => {
+          inputRefs.current[0]?.focus();
+        }, 50);
       }
     } catch (error) {
+      if (error.name === 'AbortError') return;
       console.error("OTP verification error:", error);
       setError("Network error. Please check your connection and try again.");
     } finally {
@@ -231,16 +253,21 @@ export default function Otp() {
 
   // Handle back to dashboard
   const handleBackToDashboard = () => {
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+    }
     navigate("/admin-dashboard");
   };
 
-  // Auto-submit effect
-  useEffect(() => {
+  // Manual submit button handler
+  const handleManualSubmit = () => {
     const fullOtp = otp.join("");
-    if (fullOtp.length === 6 && !loading) {
+    if (fullOtp.length === 6) {
       submitOtp(fullOtp);
+    } else {
+      setError("Please enter all 6 digits");
     }
-  }, [otp, loading]);
+  };
 
   return (
     <div className="otp-container">
@@ -265,32 +292,26 @@ export default function Otp() {
         </p>
 
         {/* Loading state for OTP sending */}
-        {sendingOtp && !error && (
+        {sendingOtp && (
           <div className="sending-otp-message">
             <div className="spinner-small"></div>
-            Sending OTP to your email...
+            Sending OTP...
           </div>
         )}
-
-        {/* Timer */}
-        <div className="timer-container">
-          <div className="timer-icon">⏳</div>
-          <div className="timer-text">
-            OTP expires in: <span>{formatTime(timer)}</span>
-          </div>
-        </div>
 
         {/* Error Message */}
         {error && (
           <div className="error-message">
             ⚠️ {error}
-            <button 
-              className="retry-btn"
-              onClick={sendOtpToUser}
-              disabled={sendingOtp}
-            >
-              Retry
-            </button>
+            <div className="error-actions">
+              <button 
+                className="retry-btn"
+                onClick={sendOtpToUser}
+                disabled={sendingOtp}
+              >
+                Resend OTP
+              </button>
+            </div>
           </div>
         )}
 
@@ -314,24 +335,57 @@ export default function Otp() {
               value={digit}
               onChange={(e) => handleOtpChange(e.target.value, index)}
               onKeyDown={(e) => handleKeyDown(e, index)}
-              disabled={loading || !!success || sendingOtp || !!error}
+              disabled={loading || !!success || sendingOtp}
               className={`otp-input-box ${digit ? "filled" : ""} ${error ? "error" : ""} ${success ? "success" : ""}`}
               autoFocus={index === 0 && !sendingOtp}
+              autoComplete="one-time-code"
             />
           ))}
         </div>
 
         {/* Auto Verify Hint */}
         <div className={`auto-verify-hint ${otp.join("").length === 6 && !loading ? "show" : ""}`}>
-          <span>↻</span>
-          Auto-verifying OTP...
+          <div className="spinner-small"></div>
+          Auto-verifying...
         </div>
+
+        {/* Manual Submit Button */}
+        {otp.join("").length === 6 && !loading && !success && (
+          <button 
+            className="verify-btn"
+            onClick={handleManualSubmit}
+            disabled={loading}
+          >
+            Verify OTP
+          </button>
+        )}
 
         {/* Loading Indicator */}
         {loading && (
           <div className="verifying-message">
             <div className="spinner"></div>
             Verifying OTP...
+          </div>
+        )}
+
+        {/* Resend OTP Link */}
+        {!sendingOtp && !success && !loading && (
+          <div className="resend-otp">
+            Didn't receive OTP?{" "}
+            <button 
+              onClick={sendOtpToUser}
+              disabled={sendingOtp}
+              className="resend-link"
+            >
+              {sendingOtp ? "Sending..." : "Resend OTP"}
+            </button>
+          </div>
+        )}
+
+        {/* Email Info */}
+        {state?.email && (
+          <div className="email-info">
+            📧 Sent to: {state.email}
           </div>
         )}
       </div>

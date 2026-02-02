@@ -22,6 +22,7 @@
   --radius-lg: 16px;
   --radius-xl: 24px;
   --transition-normal: 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  --transition-fast: 0.15s ease;
 }
 
 /* Base Styles */
@@ -85,7 +86,7 @@
   box-shadow: var(--shadow-xl);
   position: relative;
   overflow: hidden;
-  animation: slideUp 0.6s ease-out;
+  animation: slideUp 0.4s ease-out;
 }
 
 .otp-card::before {
@@ -123,7 +124,7 @@
   background: var(--primary-light);
   border-radius: var(--radius-lg);
   padding: 15px;
-  margin-bottom: 20px;
+  margin-bottom: 30px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -131,36 +132,6 @@
   color: var(--primary-dark);
   font-weight: 600;
   animation: pulse 1.5s infinite;
-}
-
-/* Timer Section */
-.timer-container {
-  background: linear-gradient(135deg, rgba(67, 97, 238, 0.05) 0%, rgba(114, 9, 183, 0.05) 100%);
-  border-radius: var(--radius-lg);
-  padding: 20px;
-  margin-bottom: 30px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 12px;
-}
-
-.timer-icon {
-  font-size: 24px;
-  color: var(--primary-color);
-}
-
-.timer-text {
-  font-size: 15px;
-  color: var(--dark-color);
-  font-weight: 600;
-}
-
-.timer-text span {
-  color: var(--primary-color);
-  font-size: 18px;
-  font-weight: 700;
-  margin-left: 4px;
 }
 
 /* OTP Input Boxes */
@@ -181,7 +152,7 @@
   text-align: center;
   background: var(--gray-100);
   color: var(--dark-color);
-  transition: var(--transition-normal);
+  transition: var(--transition-fast);
   outline: none;
   caret-color: transparent;
 }
@@ -196,7 +167,6 @@
 .otp-input-box.filled {
   border-color: var(--primary-color);
   background: white;
-  animation: pulse 0.3s ease-in-out;
 }
 
 .otp-input-box.error {
@@ -228,11 +198,10 @@
   font-size: 15px;
   font-weight: 500;
   display: flex;
+  flex-direction: column;
   align-items: center;
-  justify-content: center;
-  gap: 10px;
+  gap: 12px;
   animation: slideIn 0.3s ease-out;
-  flex-wrap: wrap;
 }
 
 .success-message {
@@ -251,27 +220,111 @@
   animation: slideIn 0.3s ease-out;
 }
 
+/* Error Actions */
+.error-actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 5px;
+}
+
 .retry-btn {
   background: var(--error-color);
   color: white;
   border: none;
-  padding: 6px 16px;
+  padding: 8px 20px;
   border-radius: 8px;
   font-size: 14px;
   font-weight: 600;
   cursor: pointer;
-  transition: var(--transition-normal);
-  margin-left: 10px;
+  transition: var(--transition-fast);
+  min-width: 120px;
 }
 
-.retry-btn:hover {
+.retry-btn:hover:not(:disabled) {
   background: #ff0a78;
   transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(247, 37, 133, 0.3);
 }
 
 .retry-btn:disabled {
   opacity: 0.5;
   cursor: not-allowed;
+}
+
+/* Verify Button */
+.verify-btn {
+  background: var(--gradient-primary);
+  color: white;
+  border: none;
+  padding: 16px 40px;
+  border-radius: 12px;
+  font-size: 16px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: var(--transition-normal);
+  margin-top: 25px;
+  box-shadow: 0 6px 20px rgba(67, 97, 238, 0.3);
+  display: inline-block;
+  min-width: 200px;
+}
+
+.verify-btn:hover:not(:disabled) {
+  transform: translateY(-3px);
+  box-shadow: 0 10px 25px rgba(67, 97, 238, 0.4);
+}
+
+.verify-btn:active:not(:disabled) {
+  transform: translateY(-1px);
+}
+
+.verify-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+}
+
+/* Resend OTP */
+.resend-otp {
+  margin-top: 25px;
+  font-size: 15px;
+  color: var(--gray-600);
+  text-align: center;
+}
+
+.resend-link {
+  background: none;
+  border: none;
+  color: var(--primary-color);
+  font-weight: 600;
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 6px;
+  transition: var(--transition-fast);
+  text-decoration: underline;
+}
+
+.resend-link:hover:not(:disabled) {
+  color: var(--primary-dark);
+  background: var(--primary-light);
+}
+
+.resend-link:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  text-decoration: none;
+}
+
+/* Email Info */
+.email-info {
+  margin-top: 15px;
+  font-size: 14px;
+  color: var(--gray-600);
+  text-align: center;
+  background: var(--primary-light);
+  padding: 8px 16px;
+  border-radius: 8px;
+  display: inline-block;
+  animation: fadeIn 0.5s ease;
 }
 
 /* Spinners */
@@ -306,7 +359,8 @@
   justify-content: center;
   gap: 8px;
   opacity: 0;
-  transition: var(--transition-normal);
+  transition: opacity 0.3s ease;
+  height: 24px;
 }
 
 .auto-verify-hint.show {
@@ -321,13 +375,14 @@
   gap: 12px;
   color: var(--primary-color);
   font-weight: 600;
+  animation: fadeIn 0.3s ease;
 }
 
 /* Animations */
 @keyframes slideUp {
   from {
     opacity: 0;
-    transform: translateY(30px);
+    transform: translateY(20px);
   }
   to {
     opacity: 1;
@@ -338,7 +393,7 @@
 @keyframes slideIn {
   from {
     opacity: 0;
-    transform: translateY(-10px);
+    transform: translateY(-8px);
   }
   to {
     opacity: 1;
@@ -367,6 +422,21 @@
   75% { transform: translateX(5px); }
 }
 
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes gentlePulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.02); }
+}
+
+/* Input focus pulse animation */
+.otp-input-box.filled {
+  animation: gentlePulse 0.2s ease;
+}
+
 /* Responsive Design */
 @media (max-width: 768px) {
   .otp-card {
@@ -390,6 +460,18 @@
     height: 60px;
     font-size: 28px;
   }
+  
+  .verify-btn {
+    padding: 14px 30px;
+    font-size: 15px;
+    min-width: 180px;
+  }
+  
+  .retry-btn {
+    padding: 7px 16px;
+    font-size: 13px;
+    min-width: 100px;
+  }
 }
 
 @media (max-width: 480px) {
@@ -411,15 +493,36 @@
     font-size: 24px;
   }
   
-  .timer-container {
-    padding: 15px;
-  }
-  
   .back-button {
     top: 15px;
     left: 15px;
     padding: 8px 16px;
     font-size: 13px;
+  }
+  
+  .verify-btn {
+    padding: 12px 24px;
+    font-size: 14px;
+    min-width: 160px;
+  }
+  
+  .resend-otp {
+    font-size: 14px;
+  }
+  
+  .email-info {
+    font-size: 12px;
+    padding: 6px 12px;
+  }
+  
+  .error-message {
+    font-size: 14px;
+    padding: 12px;
+  }
+  
+  .success-message {
+    font-size: 14px;
+    padding: 12px;
   }
 }
 
@@ -442,10 +545,6 @@
     color: #adb5bd;
   }
   
-  .timer-container {
-    background: rgba(255, 255, 255, 0.05);
-  }
-  
   .otp-input-box {
     background: rgba(255, 255, 255, 0.05);
     border-color: rgba(255, 255, 255, 0.15);
@@ -454,6 +553,7 @@
   
   .otp-input-box:focus {
     background: rgba(255, 255, 255, 0.1);
+    box-shadow: 0 0 0 4px rgba(67, 97, 238, 0.2);
   }
   
   .back-button {
@@ -464,5 +564,85 @@
   .sending-otp-message {
     background: rgba(67, 97, 238, 0.2);
     color: #a5b4fc;
+  }
+  
+  .email-info {
+    background: rgba(67, 97, 238, 0.15);
+    color: #a5b4fc;
+  }
+  
+  .resend-link {
+    color: #a5b4fc;
+  }
+  
+  .resend-link:hover:not(:disabled) {
+    background: rgba(67, 97, 238, 0.2);
+  }
+  
+  .otp-input-box.error {
+    background: rgba(247, 37, 133, 0.15);
+    border-color: rgba(247, 37, 133, 0.3);
+  }
+  
+  .otp-input-box.success {
+    background: rgba(76, 201, 240, 0.15);
+    border-color: rgba(76, 201, 240, 0.3);
+  }
+}
+
+/* Touch device optimizations */
+@media (hover: none) and (pointer: coarse) {
+  .otp-input-box {
+    height: 65px;
+    font-size: 28px;
+  }
+  
+  .verify-btn, .retry-btn, .back-button {
+    min-height: 44px; /* Apple recommended minimum touch target */
+  }
+  
+  .resend-link {
+    padding: 12px; /* Larger touch target */
+  }
+}
+
+/* High contrast mode support */
+@media (prefers-contrast: high) {
+  .otp-input-box {
+    border-width: 3px;
+  }
+  
+  .otp-input-box:focus {
+    border-width: 4px;
+  }
+  
+  .verify-btn, .retry-btn {
+    border: 2px solid currentColor;
+  }
+}
+
+/* Reduced motion support */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+  
+  .otp-card {
+    animation: none;
+  }
+  
+  .error-message,
+  .success-message {
+    animation: none;
+  }
+  
+  .spinner,
+  .spinner-small {
+    animation: none;
+    border-top-color: transparent;
   }
 }
