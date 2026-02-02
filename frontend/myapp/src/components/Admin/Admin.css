@@ -284,6 +284,31 @@ html, body {
   margin-bottom: 8px;
 }
 
+.spinner-small {
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  margin-left: 8px;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  border-radius: 50%;
+  border-top-color: #fff;
+  animation: spin 1s ease-in-out infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.tooltip {
+  position: absolute;
+  right: 10px;
+  background: #ff6b6b;
+  color: white;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 10px;
+  white-space: nowrap;
+}
 .welcome-text {
   color: #718096;
   font-size: 16px;

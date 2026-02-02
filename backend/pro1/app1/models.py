@@ -25,7 +25,7 @@ class Login(models.Model):
     password = models.CharField(max_length=128)
     email = models.EmailField(unique=True, validators=[validate_svrec_email])
     otp = models.CharField(max_length=6, blank=True, null=True)
-
+    otp_created_at = models.DateTimeField(null=True, blank=True)
 
     class Meta:
         db_table = "login"
