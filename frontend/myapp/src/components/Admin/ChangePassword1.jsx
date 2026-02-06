@@ -42,6 +42,7 @@ export default function ChangePassword1() {
     }
     
     empidRef.current = state.empid;
+    console.log("🆔 EmpID for password change:", empidRef.current);
     
     // Silent fetch - don't block UI
     const controller = new AbortController();
@@ -53,11 +54,20 @@ export default function ChangePassword1() {
       body: JSON.stringify({ empid: state.empid }),
       signal: controller.signal
     })
-      .then(r => r.json())
-      .then(data => {
-        if (data.status) previousPasswordRef.current = data.previous_password || "";
+      .then(r => {
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        return r.json();
       })
-      .catch(() => {}) // Silent fail - not critical
+      .then(data => {
+        console.log("📋 Previous password response:", data);
+        if (data.status) {
+          previousPasswordRef.current = data.previous_password || "";
+          console.log("🔐 Previous password cached:", previousPasswordRef.current ? "***" : "None");
+        }
+      })
+      .catch((err) => {
+        console.warn("⚠️ Could not fetch previous password:", err.message);
+      })
       .finally(() => clearTimeout(timeoutId));
   }, [state, navigate]);
 
@@ -120,7 +130,7 @@ export default function ChangePassword1() {
     );
   }, [validations, passwordsMatch]);
 
-  // Lightning-fast submit
+  // Lightning-fast submit - UPDATED TO HANDLE SESSION EXPIRATION
   const handleSubmit = async (e) => {
     e.preventDefault();
     
@@ -150,9 +160,14 @@ export default function ChangePassword1() {
     abortControllerRef.current = controller;
     
     try {
-      const timeoutId = setTimeout(() => controller.abort(), 2000);
+      const timeoutId = setTimeout(() => controller.abort(), 5000);
       
       const startTime = performance.now();
+      
+      console.log("🚀 Sending password update request...");
+      console.log("📤 EmpID:", empidRef.current);
+      console.log("🔑 New password length:", newPassword.length);
+      console.log("🔐 Confirm password length:", confirmPassword.length);
       
       const response = await fetch("http://127.0.0.1:8000/api/update-password-from-dashboard/", {
         method: "POST",
@@ -168,9 +183,11 @@ export default function ChangePassword1() {
       clearTimeout(timeoutId);
       
       const endTime = performance.now();
-      console.log(`⚡ Password update took ${Math.round(endTime - startTime)}ms`);
+      console.log(`⚡ Password update request took ${Math.round(endTime - startTime)}ms`);
+      console.log("📥 Response status:", response.status);
       
       const data = await response.json();
+      console.log("📦 Response data:", data);
       
       if (data.status) {
         // Update cache
@@ -182,12 +199,13 @@ export default function ChangePassword1() {
         setNewPassword("");
         setConfirmPassword("");
         
-        // Ultra-fast redirect (200ms)
-        setTimeout(() => navigate("/admin-dashboard"), 200);
+        // Show success message for 2 seconds before redirect
+        setTimeout(() => navigate("/admin-dashboard"), 2000);
       } else {
         setError(data.message || "Update failed");
       }
     } catch (err) {
+      console.error("❌ Submit error:", err);
       if (err.name === 'AbortError') {
         setError("Request timed out. Please try again.");
       } else {
