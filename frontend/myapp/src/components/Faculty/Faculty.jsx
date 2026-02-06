@@ -1,11 +1,11 @@
 import { useNavigate } from 'react-router-dom';
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import '../Admin/Admin.css';
+import '../Faculty/Faculty.css';
 
 const Admin = () => {
   const [user, setUser] = useState({ 
     name: 'Loading...', 
-    role: 'staff', 
+    role: 'faculty', 
     empid: '',
     email: ''
   });
@@ -207,7 +207,7 @@ const Admin = () => {
     // Navigate immediately to OTP page
     console.log("Navigating to OTP page...");
     
-    navigate('', {
+    navigate('/fotp', {
       state: {
         empid: user.empid,
         email: user.email || '',

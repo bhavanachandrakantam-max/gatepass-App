@@ -11,6 +11,8 @@ import ChangePassword from './components/ChangePassword/ChangePassword';
 import RequestForm from './components/RequestForm/RequestForm';
 import Cp from './components/Admin/ChangePassword1';
 import Oa from './components/Admin/otp1';
+import Fc from './components/Faculty/fChangePassword';
+import Fo from './components/Faculty/fotp';
 
 function App() {
   return (
@@ -32,6 +34,8 @@ function App() {
         
         {/* CORRECTED: Use /change-password1 (not /admin/change-password1) */}
         <Route path="/change-password1" element={<Cp />} />
+        <Route path="/fchange-password" element={<Fc />} />
+        <Route path="/fotp" element={<Fo />} />
       </Routes>
     </Router>
   );
