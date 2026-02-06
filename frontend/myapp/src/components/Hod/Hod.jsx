@@ -207,7 +207,7 @@ const Admin = () => {
     // Navigate immediately to OTP page
     console.log("Navigating to OTP page...");
     
-    navigate('/', {
+    navigate('/hotp', {
       state: {
         empid: user.empid,
         email: user.email || '',

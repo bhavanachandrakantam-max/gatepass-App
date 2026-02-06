@@ -13,6 +13,8 @@ import Cp from './components/Admin/ChangePassword1';
 import Oa from './components/Admin/otp1';
 import Fc from './components/Faculty/fChangePassword';
 import Fo from './components/Faculty/fotp';
+import Ho from './components/Hod/hotp';
+import Hc from './components/Hod/hChangePassword';
 
 function App() {
   return (
@@ -36,6 +38,10 @@ function App() {
         <Route path="/change-password1" element={<Cp />} />
         <Route path="/fchange-password" element={<Fc />} />
         <Route path="/fotp" element={<Fo />} />
+
+        <Route path="/hchange-password" element={<Hc />} />
+        <Route path="/hotp" element={<Ho />} />
+
       </Routes>
     </Router>
   );
