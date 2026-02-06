@@ -15,6 +15,8 @@ import Fc from './components/Faculty/fChangePassword';
 import Fo from './components/Faculty/fotp';
 import Ho from './components/Hod/hotp';
 import Hc from './components/Hod/hChangePassword';
+import Po from './components/Principal/potp';
+import Pc from './components/Principal/pChangePassword'
 
 function App() {
   return (
@@ -41,6 +43,9 @@ function App() {
 
         <Route path="/hchange-password" element={<Hc />} />
         <Route path="/hotp" element={<Ho />} />
+
+        <Route path="/pchange-password" element={<Pc />} />
+        <Route path="/potp" element={<Po />} />
 
       </Routes>
     </Router>
