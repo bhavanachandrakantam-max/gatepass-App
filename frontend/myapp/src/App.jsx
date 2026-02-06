@@ -16,7 +16,11 @@ import Fo from './components/Faculty/fotp';
 import Ho from './components/Hod/hotp';
 import Hc from './components/Hod/hChangePassword';
 import Po from './components/Principal/potp';
-import Pc from './components/Principal/pChangePassword'
+import Pc from './components/Principal/pChangePassword';
+import So from './components/Security/sotp';
+import Sc from './components/Security/sChangePassword';
+import SAo from './components/SuperAdmin/SAotp';
+import SAc from './components/SuperAdmin/SAChangePassword';
 
 function App() {
   return (
@@ -46,6 +50,12 @@ function App() {
 
         <Route path="/pchange-password" element={<Pc />} />
         <Route path="/potp" element={<Po />} />
+
+        <Route path="/schange-password" element={<Sc />} />
+        <Route path="/sotp" element={<So />} />
+
+        <Route path="/sachange-password" element={<SAc />} />
+        <Route path="/saotp" element={<SAo />} />
 
       </Routes>
     </Router>

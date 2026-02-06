@@ -1,6 +1,6 @@
 import { useNavigate } from 'react-router-dom';
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import '../Admin/Admin.css';
+import '../Principal/Principal.css';
 
 const Admin = () => {
   const [user, setUser] = useState({ 
