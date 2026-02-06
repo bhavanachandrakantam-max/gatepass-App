@@ -10,13 +10,23 @@ const Login = () => {
 
   const navigate = useNavigate();
 
+  // ✅ MODIFIED: First box accepts letters & numbers, others only numbers
   const handleEmpChange = (value, index) => {
-    if (!/^\d?$/.test(value)) return;
+    // For first box (index 0), accept alphanumeric (letters and numbers)
+    if (index === 0) {
+      // Allow only alphanumeric characters (single character)
+      if (!/^[a-zA-Z0-9]?$/.test(value)) return;
+    } 
+    // For other boxes (index 1, 2, 3), accept only numbers
+    else {
+      if (!/^\d?$/.test(value)) return;
+    }
 
     const newEmpId = [...empId];
-    newEmpId[index] = value;
+    newEmpId[index] = value.toUpperCase(); // Convert to uppercase for first box
     setEmpId(newEmpId);
 
+    // Auto-focus to next box if value entered
     if (value && index < 3) {
       document.getElementById(`emp-${index + 1}`).focus();
     }
@@ -57,7 +67,6 @@ const Login = () => {
     }
   };
 
-  // ✅ SIMPLIFIED LOGIN HANDLER - FIXED VERSION
   const handleSubmit = async (e) => {
     e.preventDefault();
     
@@ -82,13 +91,12 @@ const Login = () => {
         }),
       });
 
-      // Check if response is OK
       if (!res.ok) {
         throw new Error(`HTTP error! Status: ${res.status}`);
       }
 
       const data = await res.json();
-      console.log("API Response:", data); // Debug: Check what API returns
+      console.log("API Response:", data);
 
       // ✅ OTP FLOW
       if (data.status === "otp") {
@@ -100,26 +108,21 @@ const Login = () => {
           } 
         });
       }
-      // ✅ NORMAL LOGIN - CHECK IF ROLE EXISTS
+      // ✅ NORMAL LOGIN
       else if (data.status && data.role) {
         console.log("Login successful! Role:", data.role, "Full data:", data);
         
-        // Store minimal data in localStorage
         localStorage.setItem('empid', employeeId);
         localStorage.setItem('role', data.role);
         localStorage.setItem('username', data.empname || employeeId);
         
-        // ✅ FIXED: Create the dashboard path properly
         const role = data.role.toLowerCase().trim();
         const dashboardPath = `/${role}-dashboard`;
         
         console.log("Navigating to:", dashboardPath);
-        
-        // Navigate to the appropriate dashboard
         navigate(dashboardPath);
         
       }
-      // ❌ LOGIN FAILED - No role or status false
       else {
         console.error("Login failed or no role:", data);
         alert(data.message || "Login failed. Please check your credentials.");
@@ -163,6 +166,10 @@ const Login = () => {
                     onKeyDown={(e) => handleKeyDown(e, index)}
                     required
                     disabled={loading}
+                    // Add title for first box to indicate it accepts letters
+                    title={index === 0 ? "Enter a letter or number" : "Enter a number"}
+                    // Optional: Different styling for first box
+                    className={index === 0 ? "first-box" : ""}
                   />
                 ))}
               </div>
