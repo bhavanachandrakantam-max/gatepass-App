@@ -26,6 +26,7 @@ useEffect(() => {
     return;
   }
 
+  
   // Create a cleanup flag
   let isMounted = true;
   
@@ -189,6 +190,13 @@ useEffect(() => {
 
   return (
     <div className="otp-container">
+    <button 
+      className="back-to-dashboard-btn"
+      onClick={() => navigate('/SuperAdmin-dashboard')} 
+      aria-label="Back to Dashboard"
+    >
+      ← Back to Dashboard
+    </button>
       <div className="otp-card">
         <div className="header-section">
           <div className="lock-icon">🔐</div>
@@ -261,6 +269,8 @@ useEffect(() => {
           </button>
 
         </div>
+        
+        
 
         
       </div>
