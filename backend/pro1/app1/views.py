@@ -1276,3 +1276,222 @@ def debug_otp_send(request):
             "status": False,
             "message": f"Error: {str(e)}"
         })
+    # ============================================================================
+# GATE PASS REQUEST FORM FUNCTIONS
+# ============================================================================
+
+@api_view(['POST'])
+@csrf_exempt
+def create_gate_pass(request):
+    """Create a new gate pass request"""
+    try:
+        print("=" * 60)
+        print("🚀 CREATE GATE PASS REQUEST RECEIVED")
+        print("=" * 60)
+        
+        # Get data from request
+        data = json.loads(request.body)
+        print(f"📦 Received data: {json.dumps(data, indent=2)}")
+        
+        # Extract required fields
+        empid = data.get('employeeId', '').strip()
+        empname = data.get('employeeName', '').strip()
+        purpose = data.get('purpose', '').strip()
+        date = data.get('date', '')
+        out_time = data.get('outTime', '')
+        in_time = data.get('inTime', '')
+        
+        # Validate required fields
+        if not empid or not empname or not purpose or not date or not out_time or not in_time:
+            print("❌ Missing required fields")
+            return Response({
+                "status": False,
+                "message": "All required fields must be filled: Employee ID, Name, Purpose, Date, Out Time, In Time"
+            })
+        
+        # Validate time logic
+        if out_time >= in_time:
+            print("❌ Time validation failed: In Time must be after Out Time")
+            return Response({
+                "status": False,
+                "message": "In Time must be after Out Time"
+            })
+        
+        # Check if employee exists in database
+        try:
+            user = Login.objects.get(empid=empid)
+            print(f"✅ Employee found: {user.empname}")
+        except Login.DoesNotExist:
+            print(f"⚠️ Employee ID {empid} not found in database, but proceeding with form data")
+            # If not found, still proceed - maybe it's a visitor pass
+        
+        # TODO: If you have a GatePass model, save to database here
+        # Example:
+        # gate_pass = GatePass.objects.create(
+        #     employee_id=empid,
+        #     employee_name=empname,
+        #     department=data.get('department', ''),
+        #     purpose=purpose,
+        #     date=date,
+        #     out_time=out_time,
+        #     in_time=in_time,
+        #     visitor_name=data.get('visitorName', ''),
+        #     visitor_phone=data.get('visitorPhone', ''),
+        #     visitor_email=data.get('visitorEmail', ''),
+        #     vehicle_number=data.get('vehicleNumber', ''),
+        #     items_carrying=data.get('itemsCarrying', ''),
+        #     remarks=data.get('remarks', ''),
+        #     status='pending',
+        #     submitted_by=data.get('submittedBy', empid),
+        #     submitted_role=data.get('submittedRole', '')
+        # )
+        
+        # For now, just return success
+        print(f"✅ Gate pass request created successfully for {empname}")
+        print(f"📅 Date: {date}, ⏰ Time: {out_time} to {in_time}")
+        print(f"📋 Purpose: {purpose[:50]}...")
+        
+        return Response({
+            "status": True,
+            "message": "Gate pass request submitted successfully!",
+            "data": {
+                "request_id": str(random.randint(100000, 999999)),  # Replace with actual ID
+                "employee_name": empname,
+                "employee_id": empid,
+                "date": date,
+                "out_time": out_time,
+                "in_time": in_time,
+                "status": "pending",
+                "timestamp": timezone.now().isoformat()
+            }
+        })
+        
+    except json.JSONDecodeError:
+        print("❌ Invalid JSON received")
+        return Response({
+            "status": False,
+            "message": "Invalid request format"
+        })
+    except Exception as e:
+        print(f"❌ Error creating gate pass: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        return Response({
+            "status": False,
+            "message": f"Error submitting request: {str(e)}"
+        })
+
+@api_view(['GET'])
+def get_employee_details(request, empid):
+    """Get employee details for auto-filling form"""
+    try:
+        print(f"🔍 Fetching details for empid: {empid}")
+        
+        user = Login.objects.get(empid=empid)
+        
+        return Response({
+            "status": True,
+            "data": {
+                "empname": user.empname,
+                "empid": user.empid,
+                "email": user.email,
+                "role": user.role,
+                "department": user.department,
+                "phone": getattr(user, 'phone', ''),  # If you have phone field
+                "designation": getattr(user, 'designation', '')  # If you have designation field
+            }
+        })
+        
+    except Login.DoesNotExist:
+        print(f"❌ Employee not found: {empid}")
+        return Response({
+            "status": False,
+            "message": "Employee not found"
+        })
+    except Exception as e:
+        print(f"❌ Error fetching employee details: {str(e)}")
+        return Response({
+            "status": False,
+            "message": f"Error fetching details: {str(e)}"
+        })
+
+@api_view(['GET'])
+def check_gate_pass_status(request, empid):
+    """Check if employee has pending/active gate passes"""
+    try:
+        # TODO: Query your GatePass model here
+        # Example:
+        # active_passes = GatePass.objects.filter(
+        #     employee_id=empid,
+        #     date=date.today(),
+        #     status__in=['pending', 'approved']
+        # ).count()
+        
+        # For now, return dummy data
+        return Response({
+            "status": True,
+            "has_active_passes": False,
+            "active_pass_count": 0,
+            "message": "No active gate passes found"
+        })
+        
+    except Exception as e:
+        return Response({
+            "status": False,
+            "message": f"Error checking status: {str(e)}"
+        })
+
+@api_view(['POST'])
+@csrf_exempt
+def validate_gate_pass_data(request):
+    """Validate gate pass data before submission"""
+    try:
+        data = json.loads(request.body)
+        
+        # Get time fields
+        out_time = data.get('outTime', '')
+        in_time = data.get('inTime', '')
+        date = data.get('date', '')
+        
+        errors = []
+        
+        # Check if date is today or future
+        if date:
+            try:
+                from datetime import datetime
+                pass_date = datetime.strptime(date, '%Y-%m-%d').date()
+                today = datetime.now().date()
+                
+                if pass_date < today:
+                    errors.append("Date cannot be in the past")
+            except ValueError:
+                errors.append("Invalid date format")
+        
+        # Check time validation
+        if out_time and in_time:
+            if out_time >= in_time:
+                errors.append("In Time must be after Out Time")
+        
+        # Check if required fields are present
+        required_fields = ['employeeId', 'employeeName', 'purpose']
+        for field in required_fields:
+            if not data.get(field, '').strip():
+                errors.append(f"{field.replace('Id', ' ID').replace('Name', ' Name')} is required")
+        
+        if errors:
+            return Response({
+                "status": False,
+                "message": "Validation failed",
+                "errors": errors
+            })
+        
+        return Response({
+            "status": True,
+            "message": "Data validation successful"
+        })
+        
+    except Exception as e:
+        return Response({
+            "status": False,
+            "message": f"Validation error: {str(e)}"
+        })

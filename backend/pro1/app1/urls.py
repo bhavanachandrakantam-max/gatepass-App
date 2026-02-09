@@ -70,4 +70,9 @@ urlpatterns = [
          name='test_email_config'),
      # Add to urls.py
      path('api/debug-otp-send/', views.debug_otp_send, name='debug_otp_send'),
+     
+     path('api/create-gate-pass/', views.create_gate_pass, name='create_gate_pass'),
+     path('api/get-employee-details/<str:empid>/', views.get_employee_details, name='get_employee_details'),
+     path('api/check-gate-pass-status/<str:empid>/', views.check_gate_pass_status, name='check_gate_pass_status'),
+     path('api/validate-gate-pass-data/', views.validate_gate_pass_data, name='validate_gate_pass_data'),
 ]

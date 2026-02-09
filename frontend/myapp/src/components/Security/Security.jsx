@@ -13,6 +13,11 @@ const Admin = () => {
   const [activeTab, setActiveTab] = useState('dashboard');
   const [loading, setLoading] = useState(false);
   
+  // State for QR code input
+  const [qrCode, setQrCode] = useState('');
+  const [showCamera, setShowCamera] = useState(false);
+  const [scanResult, setScanResult] = useState('');
+  
   const [stats, setStats] = useState({
     monthlyConsumption: 1,
     totalActivePasses: 9,
@@ -127,12 +132,6 @@ const Admin = () => {
     }, 300);
   }, [navigate]);
 
-  const handleToRequestForm = useCallback(() => {
-    navigate('/request-form');
-    setActiveTab('request-form');
-    setSidebarOpen(false);
-  }, [navigate]);
-
   const handleCreatePass = useCallback(() => {
     navigate('/request-form');
     setActiveTab('request-form');
@@ -197,17 +196,34 @@ const Admin = () => {
     alert(`Viewing details for ${month}`);
   }, []);
 
-  // UPDATED: Fast navigation to OTP page (OTP sending happens in OTP page)
+  // Handle QR code scan with camera
+  const handleScanQR = useCallback(() => {
+    setShowCamera(true);
+    // In a real app, you would initialize camera here
+    alert('Camera activated for QR scanning. In production, implement actual camera.');
+  }, []);
+
+  // Handle manual QR code submission
+  const handleSubmitQR = useCallback((e) => {
+    e.preventDefault();
+    if (qrCode.trim()) {
+      setScanResult(`QR Code scanned: ${qrCode}`);
+      // Here you would typically validate the QR code with your backend
+      alert(`Validating QR Code: ${qrCode}`);
+      setQrCode('');
+    }
+  }, [qrCode]);
+
+  // UPDATED: Fast navigation to OTP page
   const handleChangePassword = useCallback(() => {
     if (!user.empid) {
       alert("Employee ID not found. Please login again.");
       return;
     }
 
-    // Navigate immediately to OTP page
     console.log("Navigating to OTP page...");
     
-    navigate('/', {
+    navigate('/sotp', {
       state: {
         empid: user.empid,
         email: user.email || '',
@@ -221,12 +237,6 @@ const Admin = () => {
     setActiveTab('change-password');
     setSidebarOpen(false);
   }, [navigate, user.empid, user.email, user.name, user.role]);
-
-  const handleCreateUser = useCallback(() => {
-    setActiveTab('create-user');
-    alert('Create User feature coming soon!');
-    setSidebarOpen(false);
-  }, []);
 
   const currentDate = useMemo(() => {
     return new Date().toLocaleDateString('en-US', { 
@@ -262,6 +272,7 @@ const Admin = () => {
         <span className="hamburger-line"></span>
       </button>
 
+      {/* Simplified Sidebar with only 2 buttons */}
       <div className={`sidebar ${sidebarOpen ? 'open' : ''}`}>
         <div className="sidebar-header">
           <div className="app-logo">
@@ -283,30 +294,16 @@ const Admin = () => {
           </div>
         </div>
 
+        {/* Only 2 navigation buttons as requested */}
         <nav className="sidebar-nav">
+          
           <button 
-            className={`nav-item ${activeTab === 'dashboard' ? 'active' : ''}`}
+            className="nav-item"
             onClick={() => handleNavClick('dashboard')}
             disabled={loading}
           >
             <span className="nav-icon">📊</span>
             Dashboard
-          </button>
-          <button 
-            className={`nav-item ${activeTab === 'requests' ? 'active' : ''}`}
-            onClick={handleToRequestForm}
-            disabled={loading}
-          >
-            <span className="nav-icon">📝</span>
-            Request Form
-          </button>
-          <button 
-            className={`nav-item ${activeTab === 'reports' ? 'active' : ''}`}
-            onClick={() => handleNavClick('reports')}
-            disabled={loading}
-          >
-            <span className="nav-icon">📈</span>
-            Reports
           </button>
 
           <button 
@@ -320,14 +317,7 @@ const Admin = () => {
             {!user.empid && <span className="tooltip">⚠️ ID missing</span>}
           </button>
 
-          <button 
-            className={`nav-item ${activeTab === 'create-user' ? 'active' : ''}`}
-            onClick={handleCreateUser}
-            disabled={loading}
-          >
-            <span className="nav-icon">👤</span>
-            Create User
-          </button>
+          
         </nav>
 
         <button className="logout-btn" onClick={handleLogout} disabled={loading}>
@@ -357,13 +347,6 @@ const Admin = () => {
             </p>
           </div>
           <div className="header-right">
-            <button 
-              className="create-pass-btn" 
-              onClick={handleCreatePass}
-              disabled={loading}
-            >
-              <span>+</span> Create New Pass
-            </button>
             <div className="date-time">
               <span className="date">{currentDate}</span>
               <span className="time">{currentTime}</span>
@@ -372,6 +355,7 @@ const Admin = () => {
         </header>
 
         <div className="dashboard-content">
+          {/* Welcome Card exactly as in the image */}
           <div className="welcome-card">
             <div className="welcome-content">
               <h2>Streamline Your Visitor Management</h2>
@@ -388,127 +372,144 @@ const Admin = () => {
             </div>
           </div>
 
-          <div className="dashboard-grid">
-            <div className="card consumption-card">
-              <div className="card-header">
-                <h3>Monthly Pass Consumption</h3>
-                <span className="card-badge">Current Month</span>
+          {/* QR Code Scanner Section */}
+          <div className="qr-scanner-section">
+            <div className="scanner-card">
+              <div className="scanner-header">
+                <h3>QR Code Scanner</h3>
+                <p>Scan visitor QR codes or enter manually</p>
               </div>
-              <div className="consumption-content">
-                <div className="consumption-number">
-                  <span className="current">{stats.monthlyConsumption}</span>
-                  <span className="total">/10</span>
-                </div>
-                <div className="consumption-details">
-                  <p className="active-passes">Active passes: {stats.totalActivePasses}</p>
-                  <p className="consumption-info">Limit: 10 passes per month</p>
-                </div>
-                <div className="progress-bar">
-                  <div 
-                    className="progress-fill"
-                    style={{ width: `${monthlyProgress}%` }}
-                  ></div>
-                </div>
-                <button className="view-analytics-btn" onClick={handleViewAnalytics}>
-                  View Analytics →
-                </button>
-              </div>
-            </div>
-
-            <div className="card annual-card">
-              <div className="card-header">
-                <h3>ANNUAL OVERVIEW</h3>
-                <span className="card-badge">2026</span>
-              </div>
-              <div className="annual-content">
-                <div className="total-passes">
-                  <h4>Total Passes</h4>
-                  <div className="total-number">{stats.totalPasses}</div>
-                </div>
-                <div className="monthly-breakdown">
-                  {stats.recentMonths.map((monthData, index) => (
-                    <div 
-                      key={monthData.month}
-                      className="month-item"
-                      onClick={() => handleMonthClick(monthData.month)}
-                    >
-                      <span className="month-name">{monthData.month}</span>
-                      <div className="month-bar-container">
-                        <div 
-                          className="month-bar"
-                          style={{ 
-                            height: `${(monthData.passes / 200) * 100}%`,
-                            backgroundColor: `hsl(${index * 60}, 70%, 50%)`
-                          }}
-                        ></div>
+              
+              <div className="scanner-content">
+                {/* Camera Preview */}
+                <div className="camera-preview">
+                  {showCamera ? (
+                    <div className="camera-active">
+                      <div className="camera-view">
+                        <div className="camera-placeholder">
+                          <span className="camera-icon">📷</span>
+                          <p>Camera Active</p>
+                          <div className="qr-frame"></div>
+                        </div>
                       </div>
-                      <span className="month-count">{monthData.passes}</span>
+                      <button 
+                        className="scan-button"
+                        onClick={() => {
+                          // Simulate QR code scan
+                          const fakeQR = `VISIT-${Date.now().toString().slice(-6)}`;
+                          setScanResult(`Scanned: ${fakeQR}`);
+                          alert(`QR Code detected: ${fakeQR}`);
+                        }}
+                      >
+                        Scan QR Code
+                      </button>
+                      <button 
+                        className="close-camera-btn"
+                        onClick={() => setShowCamera(false)}
+                      >
+                        Close Camera
+                      </button>
                     </div>
-                  ))}
+                  ) : (
+                    <div className="camera-inactive">
+                      <div className="camera-placeholder">
+                        <span className="camera-icon">📷</span>
+                        <p>Click to activate camera</p>
+                      </div>
+                      <button 
+                        className="activate-camera-btn"
+                        onClick={handleScanQR}
+                      >
+                        Activate Camera
+                      </button>
+                    </div>
+                  )}
+                </div>
+
+                {/* Manual QR Code Input */}
+                <div className="manual-input">
+                  <h4>Or Enter QR Code Manually</h4>
+                  <form onSubmit={handleSubmitQR} className="qr-input-form">
+                    <div className="input-group">
+                      <input
+  type="text"
+  value={qrCode}
+  onChange={(e) => {
+    // Remove any non-digit characters
+    const value = e.target.value.replace(/\D/g, '');
+    
+    // Limit to 4 digits
+    if (value.length <= 4) {
+      setQrCode(value);
+    }
+  }}
+  placeholder="Enter 4-digit code..."
+  className="qr-input"
+  maxLength={4}
+  pattern="\d{4}"
+  inputMode="numeric"
+/>
+                      <button 
+                        type="submit" 
+                        className="submit-qr-btn"
+                        disabled={!qrCode.trim()}
+                      >
+                        Submit
+                      </button>
+                    </div>
+                  </form>
+                  
+                  {/* Scan Result Display */}
+                  {scanResult && (
+                    <div className="scan-result">
+                      <h4>Scan Result:</h4>
+                      <div className="result-box">
+                        {scanResult}
+                      </div>
+                      <button 
+                        className="clear-result-btn"
+                        onClick={() => setScanResult('')}
+                      >
+                        Clear Result
+                      </button>
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
 
-            <div className="card quick-actions-card">
-              <div className="card-header">
-                <h3>Quick Actions</h3>
+            {/* Quick Stats Card */}
+            <div className="quick-stats-card">
+              <div className="stats-header">
+                <h3>Today's Activity</h3>
+                <span className="stats-badge">Live</span>
               </div>
-              <div className="quick-actions">
-                <button className="action-btn" disabled={loading}>
-                  <span className="action-icon">📋</span>
-                  Generate QR
-                </button>
-                <button className="action-btn" disabled={loading}>
-                  <span className="action-icon">👥</span>
-                  Add Visitor
-                </button>
-                <button className="action-btn" disabled={loading}>
-                  <span className="action-icon">📤</span>
-                  Export Data
-                </button>
-                <button className="action-btn" disabled={loading}>
-                  <span className="action-icon">📧</span>
-                  Send Alerts
-                </button>
+              <div className="stats-grid">
+                <div className="stat-item">
+                  <span className="stat-number">{stats.totalActivePasses}</span>
+                  <span className="stat-label">Active Passes</span>
+                </div>
+                <div className="stat-item">
+                  <span className="stat-number">15</span>
+                  <span className="stat-label">Visitors Today</span>
+                </div>
+                <div className="stat-item">
+                  <span className="stat-number">3</span>
+                  <span className="stat-label">Pending</span>
+                </div>
+                <div className="stat-item">
+                  <span className="stat-number">98%</span>
+                  <span className="stat-label">Success Rate</span>
+                </div>
               </div>
-            </div>
-
-            <div className="card notifications-card">
-              <div className="card-header">
-                <h3>Recent Notifications</h3>
-                {notifications.length > 0 && (
-                  <button 
-                    className="clear-all-btn"
-                    onClick={clearAllNotifications}
-                    disabled={loading}
-                  >
-                    Clear All
-                  </button>
-                )}
-              </div>
-              <div className="notifications-list">
-                {notifications.length > 0 ? (
-                  notifications.map(notification => (
-                    <div 
-                      key={notification.id}
-                      className={`notification-item ${notification.read ? 'read' : 'unread'}`}
-                      onClick={() => markNotificationAsRead(notification.id)}
-                    >
-                      <div className="notification-content">
-                        <p className="notification-message">{notification.message}</p>
-                        <span className="notification-time">{notification.time}</span>
-                      </div>
-                      {!notification.read && <div className="unread-dot"></div>}
-                    </div>
-                  ))
-                ) : (
-                  <div className="no-notifications">
-                    <p>No new notifications</p>
-                  </div>
-                )}
-              </div>
+              <button className="view-details-btn">
+                View All Details →
+              </button>
             </div>
           </div>
+
+          
+          
         </div>
       </div>
     </div>
