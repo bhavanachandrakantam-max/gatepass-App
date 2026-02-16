@@ -25,6 +25,7 @@ export default function ChangePassword1() {
     notPrevious: true,
     hasLetters: false,
     hasNumbers: false,
+    hasBothLettersAndNumbers: false // New validation rule
   });
 
   const [passwordStrength, setPasswordStrength] = useState({
@@ -80,19 +81,24 @@ export default function ChangePassword1() {
         notPrevious: true,
         hasLetters: false,
         hasNumbers: false,
+        hasBothLettersAndNumbers: false
       });
       setPasswordStrength({ level: "weak", score: 0 });
       return;
     }
 
     const isPrevious = newPassword === previousPasswordRef.current;
+    const hasLetters = /[a-zA-Z]/.test(newPassword);
+    const hasNumbers = /\d/.test(newPassword);
+    const hasBothLettersAndNumbers = hasLetters && hasNumbers;
     
     const validationsObj = {
       length: newPassword.length >= 6,
       notUserId: newPassword !== empidRef.current,
       notPrevious: !isPrevious,
-      hasLetters: /[a-zA-Z]/.test(newPassword),
-      hasNumbers: /\d/.test(newPassword),
+      hasLetters: hasLetters,
+      hasNumbers: hasNumbers,
+      hasBothLettersAndNumbers: hasBothLettersAndNumbers
     };
 
     setValidations(validationsObj);
@@ -102,14 +108,15 @@ export default function ChangePassword1() {
     if (validationsObj.length) score++;
     if (validationsObj.hasLetters) score++;
     if (validationsObj.hasNumbers) score++;
+    if (validationsObj.hasBothLettersAndNumbers) score += 2; // Extra weight for having both
     if (newPassword.length >= 8) score++;
     if (newPassword.length >= 12) score++;
     if (validationsObj.notPrevious) score++;
 
     let level = "weak";
-    if (score >= 5) level = "strong";
-    else if (score >= 4) level = "good";
-    else if (score >= 2) level = "fair";
+    if (score >= 7) level = "strong";
+    else if (score >= 5) level = "good";
+    else if (score >= 3) level = "fair";
 
     setPasswordStrength({ level, score });
   }, [newPassword]);
@@ -125,7 +132,7 @@ export default function ChangePassword1() {
       validations.length &&
       validations.notUserId &&
       validations.notPrevious &&
-      (validations.hasLetters || validations.hasNumbers) &&
+      validations.hasBothLettersAndNumbers && // Changed from hasLetters or hasNumbers
       passwordsMatch
     );
   }, [validations, passwordsMatch]);
@@ -289,7 +296,7 @@ export default function ChangePassword1() {
                 disabled={loading || !!success}
                 required
                 className={`form-input ${
-                  newPassword && validations.length && validations.notPrevious ? 'valid' : 
+                  newPassword && validations.length && validations.notPrevious && validations.hasBothLettersAndNumbers ? 'valid' : 
                   newPassword && !validations.notPrevious ? 'invalid' : ''
                 }`}
                 autoFocus
@@ -378,7 +385,7 @@ export default function ChangePassword1() {
               </div>
               <div className="strength-meter">
                 <div className={`strength-fill ${passwordStrength.level}`} 
-                     style={{ width: passwordStrength.score * 15 + '%' }} />
+                     style={{ width: Math.min(passwordStrength.score * 10, 100) + '%' }} />
               </div>
             </div>
           )}
@@ -408,11 +415,11 @@ export default function ChangePassword1() {
                 <span className="requirement-text">Not a previous password</span>
               </div>
               
-              <div className={`requirement ${(validations.hasLetters || validations.hasNumbers) ? 'met' : 'unmet'}`}>
+              <div className={`requirement ${validations.hasBothLettersAndNumbers ? 'met' : 'unmet'}`}>
                 <div className="requirement-check">
-                  {(validations.hasLetters || validations.hasNumbers) ? '✓' : '✗'}
+                  {validations.hasBothLettersAndNumbers ? '✓' : '✗'}
                 </div>
-                <span className="requirement-text">Contains letters or numbers</span>
+                <span className="requirement-text">Contains both letters AND numbers</span>
               </div>
             </div>
           </div>

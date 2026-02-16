@@ -301,13 +301,17 @@ const Admin = () => {
             Request Form
           </button>
           <button 
-            className={`nav-item ${activeTab === 'reports' ? 'active' : ''}`}
-            onClick={() => handleNavClick('reports')}
-            disabled={loading}
-          >
-            <span className="nav-icon">📈</span>
-            Reports
-          </button>
+  className={`nav-item ${activeTab === 'reports' ? 'active' : ''}`}
+  onClick={() => {
+    navigate('/Pr');
+    setActiveTab('reports');
+    setSidebarOpen(false);
+  }}
+  disabled={loading}
+>
+  <span className="nav-icon">📈</span>
+  Reports
+</button>
 
           <button 
             className={`nav-item ${activeTab === 'change-password' ? 'active' : ''}`}

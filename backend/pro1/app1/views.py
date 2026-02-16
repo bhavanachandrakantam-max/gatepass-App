@@ -12,7 +12,13 @@ from email.mime.image import MIMEImage
 from django.views.decorators.csrf import csrf_exempt
 from django.db import transaction
 from .models import Login
-import threading
+from datetime import datetime, timedelta
+from collections import defaultdict
+from django.http import JsonResponse
+from django.views.decorators.http import require_GET
+from django.views.decorators.csrf import csrf_exempt
+from django.contrib.auth.decorators import login_required
+
 
 # Set up logging
 logger = logging.getLogger(__name__)
@@ -1495,3 +1501,608 @@ def validate_gate_pass_data(request):
             "status": False,
             "message": f"Validation error: {str(e)}"
         })
+    
+@csrf_exempt
+@login_required
+def get_hod_reports_data(request):
+    """
+    Get reports data for HOD's department with staff filtering
+    URL: /api/get-hod-reports-data/?year=2024&month=2&staff_id=all
+    """
+    try:
+        # Get current logged-in user (HOD)
+        user = request.user
+        
+        if not hasattr(user, 'role') or user.role.lower() != 'hod':
+            return JsonResponse({
+                'status': False,
+                'message': 'Access denied. Only HODs can access.'
+            }, status=403)
+        
+        # Get query parameters
+        year = int(request.GET.get('year', datetime.now().year))
+        month = int(request.GET.get('month', datetime.now().month))
+        staff_id = request.GET.get('staff_id', 'all')
+        
+        # Get HOD's department
+        hod_department = user.department
+        
+        # Get all staff from HOD's department
+        department_staff = Login.objects.filter(
+            department=hod_department,
+            is_active=True
+        ).exclude(empid=user.empid).order_by('empname')
+        
+        # If specific staff is selected, filter by that staff
+        if staff_id != 'all':
+            department_staff = department_staff.filter(empid=staff_id)
+        
+        # Create staff list for dropdown
+        staff_list = [
+            {
+                'id': 'all',
+                'name': 'All Staff',
+                'email': '',
+                'role': 'all',
+                'value': 'All Staff'
+            }
+        ]
+        
+        for staff in Login.objects.filter(department=hod_department, is_active=True).exclude(empid=user.empid):
+            staff_list.append({
+                'id': staff.empid,
+                'name': staff.empname,
+                'email': staff.email,
+                'role': staff.role,
+                'value': staff.empname
+            })
+        
+        # Generate sample data based on actual staff count
+        base_count = len(department_staff) * 10 + (month * 5)
+        approved_count = int(base_count * 0.9)
+        pending_count = int(base_count * 0.05)
+        rejected_count = base_count - approved_count - pending_count
+        
+        # Get monthly data (6 months including selected month)
+        monthly_data = []
+        month_names = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 
+                      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+        
+        for i in range(5, -1, -1):  # Last 6 months
+            m = month - i
+            y = year
+            if m <= 0:
+                m += 12
+                y -= 1
+            
+            month_outings = 80 + (len(department_staff) * 5) + (m * 3)
+            month_approved = int(month_outings * 0.9)
+            month_pending = int(month_outings * 0.06)
+            month_rejected = month_outings - month_approved - month_pending
+            
+            monthly_data.append({
+                'month': month_names[m-1],
+                'outings': month_outings,
+                'approved': month_approved,
+                'pending': month_pending,
+                'rejected': month_rejected
+            })
+        
+        # Get staff outing summary based on actual department staff
+        staff_outings = []
+        if staff_id == 'all':
+            # Show all staff in the department
+            for staff in Login.objects.filter(department=hod_department, is_active=True).exclude(empid=user.empid):
+                staff_outings_count = 20 + (hash(staff.empid) % 30)  # Simulate different counts
+                staff_approved = int(staff_outings_count * 0.92)
+                staff_pending = int(staff_outings_count * 0.05)
+                staff_rejected = staff_outings_count - staff_approved - staff_pending
+                
+                staff_outings.append({
+                    'name': staff.empname,
+                    'department': staff.department,
+                    'outings': staff_outings_count,
+                    'approved': staff_approved,
+                    'pending': staff_pending,
+                    'rejected': staff_rejected
+                })
+        else:
+            # Show only selected staff
+            try:
+                selected_staff = Login.objects.get(empid=staff_id, department=hod_department)
+                staff_outings_count = 45
+                staff_outings.append({
+                    'name': selected_staff.empname,
+                    'department': selected_staff.department,
+                    'outings': staff_outings_count,
+                    'approved': 42,
+                    'pending': 2,
+                    'rejected': 1
+                })
+            except Login.DoesNotExist:
+                pass
+        
+        return JsonResponse({
+            'status': True,
+            'data': {
+                'summary': {
+                    'totalOutings': base_count,
+                    'approved': approved_count,
+                    'pending': pending_count,
+                    'rejected': rejected_count
+                },
+                'monthlyData': monthly_data,
+                'staffOutings': staff_outings,
+                'filters': {
+                    'year': year,
+                    'month': month_names[month-1],
+                    'staff': 'All Staff' if staff_id == 'all' else staff_id,
+                    'department': hod_department if hod_department else 'N/A'
+                },
+                'staffList': staff_list  # Send staff list for dropdown
+            }
+        })
+        
+    except Exception as e:
+        print(f"Error in get_hod_reports_data: {str(e)}")
+        return JsonResponse({
+            'status': False,
+            'message': f'Error retrieving reports data: {str(e)}'
+        }, status=500)
+
+
+@csrf_exempt
+@login_required
+def get_hod_staff_list(request):
+    """
+    Get staff list for HOD's department dropdown
+    URL: /api/get-hod-staff-list/
+    """
+    try:
+        # Get current logged-in user (HOD)
+        user = request.user
+        
+        # Check if user is HOD
+        if not hasattr(user, 'role') or user.role.lower() != 'hod':
+            return JsonResponse({
+                'status': False,
+                'message': 'Access denied. Only HODs can access this resource.'
+            }, status=403)
+        
+        # Get HOD's department
+        hod_department = user.department
+        
+        # Get all active staff from HOD's department (excluding HOD themselves)
+        staff_queryset = Login.objects.filter(
+            department=hod_department,
+            is_active=True
+        ).exclude(empid=user.empid).order_by('empname')
+        
+        # Format staff data for dropdown
+        staff_data = [
+            {
+                'id': 'all',
+                'name': 'All Staff',
+                'email': '',
+                'role': 'all',
+                'value': 'All Staff',
+                'department': 'All Departments'
+            }
+        ]
+        
+        for staff in staff_queryset:
+            # Format name as shown in your sample data (e.g., "C. Bhavana")
+            name_parts = staff.empname.split()
+            if len(name_parts) >= 2:
+                formatted_name = f"{name_parts[0][0]}. {name_parts[-1]}"
+            else:
+                formatted_name = staff.empname
+            
+            staff_data.append({
+                'id': staff.empid,
+                'name': staff.empname,
+                'formatted_name': formatted_name,
+                'email': staff.email,
+                'role': staff.role,
+                'value': formatted_name,  # This is what shows in dropdown
+                'department': staff.department,
+                'empid': staff.empid
+            })
+        
+        # If no staff found besides HOD, add a message
+        if len(staff_data) == 1:
+            staff_data.append({
+                'id': 'none',
+                'name': 'No staff members found',
+                'email': '',
+                'role': '',
+                'value': 'No staff members',
+                'department': hod_department,
+                'disabled': True
+            })
+        
+        return JsonResponse({
+            'status': True,
+            'message': 'Staff list retrieved successfully',
+            'staff_list': staff_data,
+            'department': hod_department,
+            'hod_name': user.empname,
+            'total_staff': len(staff_data) - 1  # Exclude "All Staff" option
+        })
+        
+    except Exception as e:
+        print(f"Error in get_hod_staff_list: {str(e)}")
+        return JsonResponse({
+            'status': False,
+            'message': f'Error retrieving staff list: {str(e)}'
+        }, status=500)
+
+
+@csrf_exempt
+@login_required
+def get_available_years_months(request):
+    """
+    Get available years and months for filtering
+    URL: /api/get-available-years-months/
+    """
+    try:
+        user = request.user
+        
+        # Get distinct years from Login creation dates
+        years = Login.objects.dates('date_joined', 'year')
+        year_list = [year.year for year in years]
+        
+        # If no years found, use default range
+        if not year_list:
+            current_year = datetime.now().year
+            year_list = list(range(current_year - 2, current_year + 1))
+        
+        # Month names
+        month_names = ['January', 'February', 'March', 'April', 'May', 'June',
+                      'July', 'August', 'September', 'October', 'November', 'December']
+        
+        # Current year and month
+        current_year = datetime.now().year
+        current_month = datetime.now().month
+        
+        # Return all months
+        months_list = []
+        for i in range(1, 13):
+            months_list.append({
+                'value': i,
+                'name': month_names[i-1]
+            })
+        
+        return JsonResponse({
+            'status': True,
+            'years': year_list,
+            'months': months_list,
+            'current_year': current_year,
+            'current_month': current_month
+        })
+        
+    except Exception as e:
+        print(f"Error in get_available_years_months: {str(e)}")
+        return JsonResponse({
+            'status': False,
+            'message': f'Error retrieving years/months: {str(e)}'
+        }, status=500)
+        
+@api_view(['GET'])
+@csrf_exempt
+def get_user_role_based_reports(request):
+    """
+    Get reports data based on user role (for non-HOD users)
+    """
+    try:
+        # Get query parameters
+        year = int(request.GET.get('year', datetime.now().year))
+        month = int(request.GET.get('month', datetime.now().month))
+        staff_id = request.GET.get('staff_id', 'all')
+        
+        # Get user from token (simplified - you need to implement proper auth)
+        auth_header = request.headers.get('Authorization', '')
+        if auth_header.startswith('Bearer '):
+            token = auth_header.split(' ')[1]
+            # Here you should validate the token and get user
+            # For now, using a dummy user
+            try:
+                # Try to get empid from localStorage data or token
+                # This is a simplified version - you need to implement proper token auth
+                empid = request.GET.get('empid') or '0551'  # Fallback
+                user = Login.objects.get(empid=empid)
+            except Login.DoesNotExist:
+                return JsonResponse({
+                    'status': False,
+                    'message': 'User not found'
+                }, status=404)
+        else:
+            return JsonResponse({
+                'status': False,
+                'message': 'Authentication required'
+            }, status=401)
+        
+        # Determine user role and fetch appropriate data
+        user_role = user.role.lower()
+        
+        if user_role == 'hod':
+            # For HODs, use the existing function
+            return get_hod_reports_data(request)
+        elif user_role in ['admin', 'principal']:
+            # For admins/principals, get all data
+            return get_admin_reports_data(request)
+        else:
+            # For other roles (faculty, staff), get only their own data
+            return get_individual_reports_data(request, user)
+            
+    except Exception as e:
+        print(f"Error in get_user_role_based_reports: {str(e)}")
+        return JsonResponse({
+            'status': False,
+            'message': f'Error retrieving reports: {str(e)}'
+        }, status=500)
+
+
+@api_view(['GET'])
+@csrf_exempt
+def get_admin_reports_data(request):
+    """
+    Get reports data for admin/principal (all departments)
+    """
+    try:
+        # Get query parameters
+        year = int(request.GET.get('year', datetime.now().year))
+        month = int(request.GET.get('month', datetime.now().month))
+        staff_id = request.GET.get('staff_id', 'all')
+        
+        # Get all departments summary
+        departments = Login.objects.values('department').distinct()
+        
+        # Generate sample data (replace with actual data from your GatePass model)
+        departments_data = []
+        for dept in departments:
+            if dept['department']:  # Skip empty departments
+                dept_outings = random.randint(50, 200)
+                departments_data.append({
+                    'name': dept['department'],
+                    'outings': dept_outings,
+                    'approved': int(dept_outings * 0.9),
+                    'pending': int(dept_outings * 0.05),
+                    'rejected': dept_outings - int(dept_outings * 0.9) - int(dept_outings * 0.05)
+                })
+        
+        # Monthly data
+        monthly_data = []
+        month_names = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 
+                      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+        
+        for i in range(5, -1, -1):
+            m = month - i
+            y = year
+            if m <= 0:
+                m += 12
+                y -= 1
+            
+            month_outings = random.randint(100, 300)
+            month_approved = int(month_outings * 0.88)
+            month_pending = int(month_outings * 0.07)
+            month_rejected = month_outings - month_approved - month_pending
+            
+            monthly_data.append({
+                'month': month_names[m-1],
+                'outings': month_outings,
+                'approved': month_approved,
+                'pending': month_pending,
+                'rejected': month_rejected
+            })
+        
+        # Summary
+        total_outings = sum(dept['outings'] for dept in departments_data)
+        total_approved = sum(dept['approved'] for dept in departments_data)
+        total_pending = sum(dept['pending'] for dept in departments_data)
+        total_rejected = sum(dept['rejected'] for dept in departments_data)
+        
+        return JsonResponse({
+            'status': True,
+            'data': {
+                'summary': {
+                    'totalOutings': total_outings,
+                    'approved': total_approved,
+                    'pending': total_pending,
+                    'rejected': total_rejected
+                },
+                'monthlyData': monthly_data,
+                'departmentsData': departments_data,
+                'filters': {
+                    'year': year,
+                    'month': month_names[month-1],
+                    'staff': 'All Departments'
+                }
+            }
+        })
+        
+    except Exception as e:
+        print(f"Error in get_admin_reports_data: {str(e)}")
+        return JsonResponse({
+            'status': False,
+            'message': f'Error retrieving admin reports: {str(e)}'
+        }, status=500)
+
+
+@api_view(['GET'])
+@csrf_exempt
+def get_individual_reports_data(request, user):
+    """
+    Get reports data for individual staff/faculty
+    """
+    try:
+        # Get query parameters
+        year = int(request.GET.get('year', datetime.now().year))
+        month = int(request.GET.get('month', datetime.now().month))
+        
+        # Get individual's data
+        empid = user.empid
+        
+        # Generate sample data for this individual
+        # Replace with actual queries to your GatePass model
+        individual_outings = random.randint(10, 50)
+        individual_approved = int(individual_outings * 0.95)
+        individual_pending = int(individual_outings * 0.03)
+        individual_rejected = individual_outings - individual_approved - individual_pending
+        
+        # Monthly data for this individual
+        monthly_data = []
+        month_names = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 
+                      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+        
+        for i in range(5, -1, -1):
+            m = month - i
+            y = year
+            if m <= 0:
+                m += 12
+                y -= 1
+            
+            month_outings = random.randint(1, 10)
+            month_approved = int(month_outings * 0.96)
+            month_pending = int(month_outings * 0.02)
+            month_rejected = month_outings - month_approved - month_pending
+            
+            monthly_data.append({
+                'month': month_names[m-1],
+                'outings': month_outings,
+                'approved': month_approved,
+                'pending': month_pending,
+                'rejected': month_rejected
+            })
+        
+        # Individual's data
+        individual_data = [{
+            'name': user.empname,
+            'department': user.department,
+            'outings': individual_outings,
+            'approved': individual_approved,
+            'pending': individual_pending,
+            'rejected': individual_rejected
+        }]
+        
+        return JsonResponse({
+            'status': True,
+            'data': {
+                'summary': {
+                    'totalOutings': individual_outings,
+                    'approved': individual_approved,
+                    'pending': individual_pending,
+                    'rejected': individual_rejected
+                },
+                'monthlyData': monthly_data,
+                'staffOutings': individual_data,
+                'filters': {
+                    'year': year,
+                    'month': month_names[month-1],
+                    'staff': user.empname
+                }
+            }
+        })
+        
+    except Exception as e:
+        print(f"Error in get_individual_reports_data: {str(e)}")
+        return JsonResponse({
+            'status': False,
+            'message': f'Error retrieving individual reports: {str(e)}'
+        }, status=500)
+    
+@api_view(['GET'])
+@csrf_exempt
+def export_reports_csv(request):
+    """
+    Export reports data to CSV
+    """
+    try:
+        # Get query parameters
+        year = int(request.GET.get('year', datetime.now().year))
+        month = int(request.GET.get('month', datetime.now().month))
+        staff_id = request.GET.get('staff_id', 'all')
+        
+        # Determine user role from token or request
+        # For now, using dummy data
+        month_names = ['January', 'February', 'March', 'April', 'May', 'June',
+                      'July', 'August', 'September', 'October', 'November', 'December']
+        
+        month_name = month_names[month-1] if 1 <= month <= 12 else month_names[0]
+        
+        # Create CSV content
+        import csv
+        import io
+        
+        # Create a string buffer
+        output = io.StringIO()
+        writer = csv.writer(output)
+        
+        # Write header
+        writer.writerow(['Gate Pass Reports Export'])
+        writer.writerow([f'Year: {year}, Month: {month_name}, Staff: {staff_id}'])
+        writer.writerow([''])
+        
+        # Write summary section
+        writer.writerow(['SUMMARY'])
+        writer.writerow(['Total Outings', 'Approved', 'Pending', 'Rejected'])
+        writer.writerow(['150', '135', '10', '5'])  # Dummy data
+        
+        writer.writerow([''])
+        
+        # Write monthly data section
+        writer.writerow(['MONTHLY TRENDS'])
+        writer.writerow(['Month', 'Total Outings', 'Approved', 'Pending', 'Rejected'])
+        
+        # Generate 6 months of dummy data
+        for i in range(6):
+            m = month - i
+            y = year
+            if m <= 0:
+                m += 12
+                y -= 1
+            m_name = month_names[m-1][:3] if 1 <= m <= 12 else f"M{m}"
+            writer.writerow([f'{m_name} {y}', '25', '22', '2', '1'])
+        
+        writer.writerow([''])
+        
+        # Write staff/department section
+        writer.writerow(['STAFF/DEPARTMENT SUMMARY'])
+        writer.writerow(['Name', 'Department', 'Total', 'Approved', 'Pending', 'Rejected'])
+        
+        # Dummy staff data
+        staff_data = [
+            ['C. Surendra', 'C.DC', '45', '42', '2', '1'],
+            ['C. Bhavana', 'Security', '38', '36', '1', '1'],
+            ['S. Madhavi', 'CSE', '32', '30', '1', '1'],
+            ['balachandhradu', 'CSE', '28', '26', '1', '1'],
+            ['N Rakesh Babu', 'CDC', '40', '38', '1', '1']
+        ]
+        
+        for row in staff_data:
+            writer.writerow(row)
+        
+        writer.writerow([''])
+        writer.writerow(['Generated on', datetime.now().strftime('%Y-%m-%d %H:%M:%S')])
+        writer.writerow(['SVR Engineering College - Gate Pass System'])
+        
+        # Get the CSV content
+        csv_content = output.getvalue()
+        output.close()
+        
+        # Create filename
+        filename = f'gatepass_reports_{year}_{month:02d}_{staff_id}_{datetime.now().strftime("%Y%m%d_%H%M%S")}.csv'
+        
+        return JsonResponse({
+            'status': True,
+            'message': 'CSV export generated successfully',
+            'filename': filename,
+            'csv_content': csv_content
+        })
+        
+    except Exception as e:
+        print(f"Error in export_reports_csv: {str(e)}")
+        return JsonResponse({
+            'status': False,
+            'message': f'Error exporting CSV: {str(e)}'
+        }, status=500)

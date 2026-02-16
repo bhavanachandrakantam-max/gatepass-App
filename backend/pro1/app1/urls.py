@@ -75,4 +75,12 @@ urlpatterns = [
      path('api/get-employee-details/<str:empid>/', views.get_employee_details, name='get_employee_details'),
      path('api/check-gate-pass-status/<str:empid>/', views.check_gate_pass_status, name='check_gate_pass_status'),
      path('api/validate-gate-pass-data/', views.validate_gate_pass_data, name='validate_gate_pass_data'),
+     
+     
+     path('api/get-hod-reports-data/', views.get_hod_reports_data, name='get_hod_reports_data'),
+    path('api/get-hod-staff-list/', views.get_hod_staff_list, name='get_hod_staff_list'),
+    path('api/get-available-years-months/', views.get_available_years_months, name='get_available_years_months'),
+    path('api/get-admin-reports-data/', views.get_admin_reports_data, name='get_admin_reports_data'),
+    path('api/get-user-role-reports/', views.get_user_role_based_reports, name='get_user_role_reports'),
+    path('api/export-reports-csv/', views.export_reports_csv, name='export_reports_csv'),
 ]

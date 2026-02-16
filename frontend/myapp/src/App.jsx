@@ -21,6 +21,10 @@ import So from './components/Security/sotp';
 import Sc from './components/Security/sChangePassword';
 import SAo from './components/SuperAdmin/SAotp';
 import SAc from './components/SuperAdmin/SAChangePassword';
+import Ar from './components/Admin/Reports';
+import Hr from './components/Hod/hReports';
+import Pr from './components/Principal/pReports';
+import SAr from './components/SuperAdmin/saReports';
 
 function App() {
   return (
@@ -39,23 +43,28 @@ function App() {
         
         {/* CORRECTED: Use /otp1 (not /admin/otp1) */}
         <Route path="/otp1" element={<Oa />} />
-        
         {/* CORRECTED: Use /change-password1 (not /admin/change-password1) */}
         <Route path="/change-password1" element={<Cp />} />
+        <Route path="/admin-reports" element={< Ar />} />
+
         <Route path="/fchange-password" element={<Fc />} />
         <Route path="/fotp" element={<Fo />} />
 
         <Route path="/hchange-password" element={<Hc />} />
         <Route path="/hotp" element={<Ho />} />
+        <Route path="/hod-reports" element={<Hr />} />
 
         <Route path="/pchange-password" element={<Pc />} />
         <Route path="/potp" element={<Po />} />
+        <Route path="/Pr" element={<Pr />} />
 
         <Route path="/schange-password" element={<Sc />} />
         <Route path="/sotp" element={<So />} />
 
         <Route path="/sachange-password" element={<SAc />} />
         <Route path="/saotp" element={<SAo />} />
+        <Route path="/SAr" element={<SAr />} />
+
 
       </Routes>
     </Router>
